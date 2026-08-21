@@ -1,6 +1,8 @@
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthUser, UserRole } from '../models/auth.model';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, throwError, map } from 'rxjs';
+import { AuthUser, UserRole, ApiResponse, LoginResponseData, LoginCredentials } from '../models/auth.model';
 import { CompanyProfile } from '../models/company.model';
 import { NotificationService } from './notification.service';
 
@@ -8,64 +10,14 @@ import { NotificationService } from './notification.service';
   providedIn: 'root'
 })
 export class AuthService {
+  private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly toast = inject(NotificationService);
   private readonly AUTH_KEY = 'pulse_hrms_auth_user';
+  private readonly API_AUTH_URL = 'http://localhost:8080/api/v1/auth';
 
   readonly currentUser = signal<AuthUser | null>(this.loadStoredUser());
   readonly isAuthenticated = computed(() => !!this.currentUser());
-
-  // Demo user profiles
-  readonly demoUsers: Record<string, AuthUser> = {
-    'Super Admin': {
-      id: 'EMP-1001',
-      name: 'Jitendra Shukla',
-      email: 'admin@pulsehrms.com',
-      role: 'Super Admin',
-      designation: 'Principal Architect & System Admin',
-      department: 'Engineering',
-      avatarInitials: 'JS',
-      token: 'jwt-token-superadmin-jitendra-2026',
-      companyId: 'CMP-101',
-      companyName: 'Pulse Technologies India Pvt Ltd'
-    },
-    'Company Admin': {
-      id: 'EMP-1007',
-      name: 'Arjun Kapoor',
-      email: 'mumbai.admin@pulsehrms.com',
-      role: 'Company Admin',
-      designation: 'Managing Director & Branch Head',
-      department: 'Management',
-      avatarInitials: 'AK',
-      token: 'jwt-token-companyadmin-arjun-2026',
-      companyId: 'CMP-102',
-      companyName: 'Pulse Cloud Solutions Mumbai Ltd'
-    },
-    'HR Manager': {
-      id: 'EMP-1004',
-      name: 'Priya Nair',
-      email: 'hr@pulsehrms.com',
-      role: 'HR Manager',
-      designation: 'VP of People & Culture',
-      department: 'Human Resources',
-      avatarInitials: 'PN',
-      token: 'jwt-token-hr-priya-nair-2026',
-      companyId: 'CMP-101',
-      companyName: 'Pulse Technologies India Pvt Ltd'
-    },
-    'Employee': {
-      id: 'EMP-1003',
-      name: 'Vikram Patel',
-      email: 'employee@pulsehrms.com',
-      role: 'Employee',
-      designation: 'Senior Frontend Engineer',
-      department: 'Engineering',
-      avatarInitials: 'VP',
-      token: 'jwt-token-emp-vikram-patel-2026',
-      companyId: 'CMP-101',
-      companyName: 'Pulse Technologies India Pvt Ltd'
-    }
-  };
 
   constructor() {
     effect(() => {
@@ -80,78 +32,74 @@ export class AuthService {
     });
   }
 
-  login(email: string, password: string, company?: CompanyProfile): boolean {
-    const trimmedEmail = email.trim().toLowerCase();
-    
-    // Check against demo accounts
-    let matchedUser: AuthUser | null = null;
-    if (trimmedEmail === 'admin@pulsehrms.com' || trimmedEmail === 'jitendra@pulsehrms.com') {
-      matchedUser = this.demoUsers['Super Admin'];
-    } else if (trimmedEmail === 'mumbai.admin@pulsehrms.com') {
-      matchedUser = this.demoUsers['Company Admin'];
-    } else if (trimmedEmail === 'hr@pulsehrms.com' || trimmedEmail === 'priya@pulsehrms.com') {
-      matchedUser = this.demoUsers['HR Manager'];
-    } else if (trimmedEmail === 'employee@pulsehrms.com' || trimmedEmail === 'vikram@pulsehrms.com') {
-      matchedUser = this.demoUsers['Employee'];
-    } else if (trimmedEmail.includes('@') && password.length >= 4) {
-      // Allow custom email login with company profile
-      const nameParts = trimmedEmail.split('@')[0].split('.');
-      const first = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'Member';
-      const last = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'User';
-      
-      const compId = company ? company.id : 'CMP-101';
-      const compName = company ? company.companyName : 'Pulse Technologies India Pvt Ltd';
-
-      matchedUser = {
-        id: 'EMP-' + Math.floor(1000 + Math.random() * 9000),
-        name: `${first} ${last}`,
-        email: trimmedEmail,
-        role: trimmedEmail.startsWith('admin') ? 'Company Admin' : 'Employee',
-        designation: 'Corporate Staff',
-        department: 'Operations',
-        avatarInitials: (first[0] + (last[0] || first[1] || 'U')).toUpperCase(),
-        token: 'jwt-token-custom-' + Date.now(),
-        companyId: compId,
-        companyName: compName
-      };
-    }
-
-    if (matchedUser) {
-      this.currentUser.set(matchedUser);
-      this.toast.success(`Welcome, ${matchedUser.name}`, `Signed into ${matchedUser.companyName} as ${matchedUser.role}.`);
-      return true;
-    } else {
-      this.toast.error('Authentication Failed', 'Please provide a valid email and password (min 4 chars).');
-      return false;
-    }
-  }
-
-  quickLogin(role: string): void {
-    const user = this.demoUsers[role] || this.demoUsers['Super Admin'];
-    if (user) {
-      this.currentUser.set(user);
-      this.toast.success(`Demo Access Granted`, `Logged in as ${user.name} (${user.companyName}).`);
-      this.router.navigate(['/dashboard']);
-    }
-  }
-
-  quickCompanyLogin(company: CompanyProfile): void {
-    const user: AuthUser = {
-      id: 'ADM-' + company.code,
-      name: `${company.companyName} Admin`,
-      email: company.email,
-      role: 'Company Admin',
-      designation: 'Enterprise Corporate Administrator',
-      department: 'Executive Administration',
-      avatarInitials: company.companyName.substring(0, 2).toUpperCase(),
-      token: 'jwt-token-company-' + company.code + '-' + Date.now(),
-      companyId: company.id,
-      companyName: company.companyName
+  /**
+   * Real Backend API Login Call to POST http://localhost:8080/api/v1/auth/login
+   */
+  login(credentials: LoginCredentials): Observable<AuthUser> {
+    const payload = {
+      email: credentials.email.trim(),
+      password: credentials.password
     };
 
-    this.currentUser.set(user);
-    this.toast.success(`Company Portal Access`, `Logged in as Administrator for ${company.companyName}.`);
-    this.router.navigate(['/dashboard']);
+    return this.http.post<ApiResponse<LoginResponseData>>(`${this.API_AUTH_URL}/login`, payload).pipe(
+      map(response => {
+        if (!response.success || !response.data) {
+          throw new Error(response.message || 'Login failed');
+        }
+
+        const data = response.data;
+        const u = data.user;
+
+        const authUser: AuthUser = {
+          id: u.id || 'USER-' + Date.now(),
+          name: u.name,
+          email: u.email,
+          role: (u.role as UserRole) || 'Employee',
+          roles: (u.roles || [u.role]).map(role => role as UserRole),
+          designation: u.designation || 'Staff',
+          department: u.department || 'Operations',
+          avatarInitials: u.avatarInitials || u.name.substring(0, 2).toUpperCase(),
+          token: data.token,
+          companyId: u.companyId || 'COMP-001',
+          companyName: u.companyName || 'Acme Technologies Inc.',
+          employeeId: u.employeeId
+        };
+
+        this.currentUser.set(authUser);
+        this.toast.success(`Welcome back, ${authUser.name}`, `Signed in successfully.`);
+        return authUser;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        let errorMsg = 'Invalid email or password';
+        if (error.error?.message) {
+          errorMsg = error.error.message;
+        } else if (error.status === 0) {
+          errorMsg = 'Could not connect to backend server at http://localhost:8080. Please ensure the Spring Boot application is running.';
+        }
+        this.toast.error('Authentication Failed', errorMsg);
+        return throwError(() => new Error(errorMsg));
+      })
+    );
+  }
+
+  registerCredentials(credentials: {
+    name: string;
+    email: string;
+    password: string;
+    companyId: string;
+    companyName: string;
+  }): Observable<{ data: AuthUser }> {
+    return this.http.post<{ data: AuthUser }>(`${this.API_AUTH_URL}/register-credentials`, {
+      ...credentials,
+      designation: 'Company User',
+      department: 'Administration'
+    });
+  }
+
+  assignRoles(userId: string, roles: string[]): Observable<AuthUser> {
+    return this.http.put<{ data: AuthUser }>(`http://localhost:8080/api/v1/users/${userId}/role`, { roles }).pipe(
+      map(response => response.data)
+    );
   }
 
   switchCompany(company: CompanyProfile): void {
@@ -174,6 +122,10 @@ export class AuthService {
       this.toast.info('Signed Out', `${user.name} has been logged out.`);
     }
     this.router.navigate(['/login']);
+  }
+
+  getToken(): string | null {
+    return this.currentUser()?.token || null;
   }
 
   private loadStoredUser(): AuthUser | null {

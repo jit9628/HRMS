@@ -1,0 +1,72 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: hrms-backend
+  datasource:
+    url: jdbc:postgresql://ep-sparkling-union-a19a2k2y-pooler.ap-southeast-1.aws.neon.tech/hrms?sslmode=require
+    username: neondb_owner
+    password: npg_OnUo4WLpCZF5
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 30000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    defer-datasource-initialization: true
+
+  sql:
+    init:
+      mode: never
+
+  modulith:
+    events:
+      republish-uncompleted-events-when-restarted: true
+
+# JWT Security Configuration
+app:
+  jwt:
+    secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
+    expiration-ms: 86400000 # 24 hours
+    header-name: Authorization
+    token-prefix: "Bearer "
+  cors:
+    allowed-origins:
+      - "http://localhost:4200"
+      - "http://localhost:3000"
+      - "http://127.0.0.1:4200"
+
+# Actuator & Observability
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,modulith
+  endpoint:
+    health:
+      show-details: always
+
+# OpenAPI / Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha

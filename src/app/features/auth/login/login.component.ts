@@ -7,7 +7,6 @@ import { ThemeService } from '../../../core/services/theme.service';
 import { HrmsDataService } from '../../../core/services/hrms-data.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { ToastContainerComponent } from '../../../shared/components/toast/toast.component';
-import { CompanyProfile } from '../../../core/models/company.model';
 
 @Component({
   selector: 'app-login',
@@ -72,7 +71,7 @@ import { CompanyProfile } from '../../../core/models/company.model';
             <span class="c-title">REGISTERED CORPORATE ENTITIES ({{ companies().length }}):</span>
             <div class="companies-chip-list">
               @for (c of companies(); track c.id) {
-                <div class="company-chip" (click)="loginAsCompany(c)">
+                <div class="company-chip" (click)="selectCompany(c.id)">
                   <span class="chip-dot" [style.background]="c.brandColor || 'var(--primary-500)'"></span>
                   <span class="chip-name">{{ c.companyName }}</span>
                   <span class="chip-code font-mono">{{ c.code }}</span>
@@ -119,11 +118,11 @@ import { CompanyProfile } from '../../../core/models/company.model';
           </div>
 
           @if (activeTab() === 'companies') {
-            <!-- 🏢 Company Portals 1-Click Login List -->
+            <!-- Registered company directory -->
             <div class="company-portals-section">
               <div class="portal-grid">
                 @for (c of companies(); track c.id) {
-                  <div class="company-portal-card card-hover" (click)="loginAsCompany(c)">
+                  <div class="company-portal-card card-hover" (click)="selectCompany(c.id)">
                     <div class="c-portal-left">
                       <div class="c-portal-avatar" [style.background]="c.brandColor || 'var(--primary-600)'">
                         <app-icon name="building" [size]="20"></app-icon>
@@ -145,33 +144,8 @@ import { CompanyProfile } from '../../../core/models/company.model';
               </div>
             </div>
           } @else {
-            <!-- ⚡ 1-Click Quick Demo Switcher -->
-            <div class="quick-demo-section">
-              <div class="demo-buttons-grid">
-                <button type="button" class="demo-btn admin-btn" (click)="quickLogin('Super Admin')">
-                  <div class="demo-avatar">JS</div>
-                  <div class="demo-info">
-                    <span class="role-name">Super Admin</span>
-                    <span class="user-sub">Jitendra Shukla (HQ)</span>
-                  </div>
-                </button>
-
-                <button type="button" class="demo-btn hr-btn" (click)="quickLogin('Company Admin')">
-                  <div class="demo-avatar">AK</div>
-                  <div class="demo-info">
-                    <span class="role-name">Company Admin</span>
-                    <span class="user-sub">Arjun (Mumbai)</span>
-                  </div>
-                </button>
-
-                <button type="button" class="demo-btn emp-btn" (click)="quickLogin('Employee')">
-                  <div class="demo-avatar">VP</div>
-                  <div class="demo-info">
-                    <span class="role-name">Employee</span>
-                    <span class="user-sub">Vikram Patel</span>
-                  </div>
-                </button>
-              </div>
+            <div class="credentials-only-message">
+              Sign in with your enterprise credentials to continue.
             </div>
           }
 
@@ -198,7 +172,7 @@ import { CompanyProfile } from '../../../core/models/company.model';
                   type="email" 
                   class="form-control" 
                   formControlName="email" 
-                  placeholder="admin@pulsehrms.com"
+                  placeholder="admin@hrms.internal"
                 />
               </div>
               @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
@@ -236,7 +210,7 @@ import { CompanyProfile } from '../../../core/models/company.model';
             @if (showForgotHint()) {
               <div class="forgot-hint-box">
                 <app-icon name="alert-circle" [size]="16"></app-icon>
-                <span>For demo mode, any password with 4+ characters or clicking any 1-Click button will sign you in!</span>
+                <span>Please contact your administrator to reset your password.</span>
               </div>
             }
 
@@ -821,24 +795,18 @@ export class LoginComponent implements OnInit {
       this.router.navigateByUrl(this.returnUrl);
     }
 
-    const defaultComp = this.companies()[0]?.id || 'CMP-101';
+    const defaultComp = this.companies()[0]?.id || '';
 
     this.loginForm = this.fb.group({
-      selectedCompanyId: [defaultComp, Validators.required],
-      email: ['admin@pulsehrms.com', [Validators.required, Validators.email]],
-      password: ['Admin@123', [Validators.required, Validators.minLength(4)]],
-      rememberMe: [true]
+      selectedCompanyId: [defaultComp],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(4)]],
+      rememberMe: [false]
     });
   }
 
-  quickLogin(role: string): void {
-    this.authService.quickLogin(role);
-    this.router.navigateByUrl(this.returnUrl);
-  }
-
-  loginAsCompany(company: CompanyProfile): void {
-    this.authService.quickCompanyLogin(company);
-    this.router.navigateByUrl(this.returnUrl);
+  selectCompany(companyId: string): void {
+    this.loginForm.patchValue({ selectedCompanyId: companyId });
   }
 
   toggleShowPassword(): void {
@@ -849,15 +817,16 @@ export class LoginComponent implements OnInit {
     if (this.loginForm.invalid) return;
 
     this.isLoading.set(true);
-    const { email, password, selectedCompanyId } = this.loginForm.value;
-    const comp = this.companies().find(c => c.id === selectedCompanyId);
+    const { email, password } = this.loginForm.value;
 
-    setTimeout(() => {
-      this.isLoading.set(false);
-      const success = this.authService.login(email, password, comp);
-      if (success) {
+    this.authService.login({ email, password }).subscribe({
+      next: (user) => {
+        this.isLoading.set(false);
         this.router.navigateByUrl(this.returnUrl);
+      },
+      error: () => {
+        this.isLoading.set(false);
       }
-    }, 300);
+    });
   }
 }

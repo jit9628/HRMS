@@ -1,15 +1,16 @@
-import { Component, input, inject, computed } from '@angular/core';
+import { Component, input, inject, computed, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { IconComponent } from '../../shared/components/icon/icon.component';
-import { HrmsDataService } from '../../core/services/hrms-data.service';
 import { AuthService } from '../../core/services/auth.service';
+import { MenuApiService, UserFeature } from '../../core/services/menu-api.service';
 
 interface NavItem {
   path: string;
   label: string;
   icon: string;
   badge?: number;
+  children?: NavItem[];
 }
 
 @Component({
@@ -36,21 +37,40 @@ interface NavItem {
         <div class="menu-section-label" *ngIf="!isCollapsed()">CORE WORKSPACE</div>
         <nav class="nav-list">
           @for (item of navItems(); track item.path) {
-            <a 
-              [routerLink]="item.path" 
-              routerLinkActive="active" 
-              class="nav-link"
-              [title]="isCollapsed() ? item.label : ''">
-              <span class="nav-icon">
-                <app-icon [name]="item.icon" [size]="20"></app-icon>
-              </span>
-              @if (!isCollapsed()) {
-                <span class="nav-text">{{ item.label }}</span>
-                @if (item.badge && item.badge > 0) {
-                  <span class="nav-badge">{{ item.badge }}</span>
+            <div class="nav-item-group">
+              <div class="nav-link-row">
+                <a 
+                  [routerLink]="item.path" 
+                  routerLinkActive="active" 
+                  class="nav-link"
+                  [title]="isCollapsed() ? item.label : ''">
+                  <span class="nav-icon">
+                    <app-icon [name]="item.icon" [size]="20"></app-icon>
+                  </span>
+                  @if (!isCollapsed()) {
+                    <span class="nav-text">{{ item.label }}</span>
+                    @if (item.badge && item.badge > 0) {
+                      <span class="nav-badge">{{ item.badge }}</span>
+                    }
+                  }
+                </a>
+                @if (!isCollapsed() && item.children?.length) {
+                  <button type="button" class="submenu-toggle" (click)="toggleExpanded(item.path)" [attr.aria-label]="'Toggle ' + item.label + ' submenu'">
+                    <app-icon [name]="isExpanded(item.path) ? 'chevron-down' : 'chevron-right'" [size]="14"></app-icon>
+                  </button>
                 }
+              </div>
+              @if (!isCollapsed() && item.children?.length && isExpanded(item.path)) {
+                <div class="submenu-list">
+                  @for (child of item.children; track child.path) {
+                    <a [routerLink]="child.path" routerLinkActive="active" class="submenu-link">
+                      <span class="submenu-marker"></span>
+                      <span>{{ child.label }}</span>
+                    </a>
+                  }
+                </div>
               }
-            </a>
+            </div>
           }
         </nav>
       </div>
@@ -168,6 +188,56 @@ interface NavItem {
       gap: 0.25rem;
     }
 
+    .nav-item-group { width: 100%; }
+
+    .nav-link-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-link-row .nav-link { flex: 1; }
+
+    .submenu-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 32px;
+      margin-right: 0.25rem;
+      color: var(--sidebar-text);
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+
+    .submenu-toggle:hover { background: rgba(255, 255, 255, 0.06); color: #ffffff; }
+
+    .submenu-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      margin: 0.15rem 0 0.35rem 2.2rem;
+      border-left: 1px solid var(--sidebar-border);
+      padding-left: 0.65rem;
+    }
+
+    .submenu-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 30px;
+      padding: 0.35rem 0.5rem;
+      color: var(--sidebar-text);
+      font-size: 0.78rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .submenu-link:hover,
+    .submenu-link.active { color: var(--sidebar-active-text); background: var(--sidebar-active-bg); }
+
+    .submenu-marker { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+
     .nav-link {
       display: flex;
       align-items: center;
@@ -258,42 +328,53 @@ interface NavItem {
 })
 export class SidebarComponent {
   isCollapsed = input<boolean>(false);
-  private readonly hrmsData = inject(HrmsDataService);
   readonly authService = inject(AuthService);
+  private readonly menuApi = inject(MenuApiService);
+  private readonly apiMenuItems = signal<UserFeature[]>([]);
+  private readonly menuLoaded = signal(false);
+  private readonly expandedMenus = signal(new Set<string>());
+
+  constructor() {
+    effect(() => {
+      const user = this.authService.currentUser();
+      this.apiMenuItems.set([]);
+      this.menuLoaded.set(false);
+
+      if (!user) return;
+
+      this.menuApi.getCurrentUserFeatures().subscribe({
+        next: features => {
+          this.apiMenuItems.set(features.filter(feature => feature.enabled));
+          this.menuLoaded.set(true);
+        },
+        error: () => this.menuLoaded.set(true)
+      });
+    });
+  }
 
   readonly navItems = computed<NavItem[]>(() => {
-    const items: NavItem[] = [
-      { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-      { path: '/employees', label: 'Employees', icon: 'users' },
-      { path: '/attendance', label: 'Attendance', icon: 'clock' },
-      { 
-        path: '/leaves', 
-        label: 'Leave Management', 
-        icon: 'calendar', 
-        badge: this.hrmsData.pendingLeaveRequests().length 
-      },
-      { path: '/payroll', label: 'Payroll & Payslips', icon: 'dollar-sign' },
-      { 
-        path: '/recruitment', 
-        label: 'Recruitment (ATS)', 
-        icon: 'briefcase',
-        badge: this.hrmsData.activeJobOpeningsCount()
-      },
-      { path: '/performance', label: 'Performance & OKRs', icon: 'award' }
-    ];
-
-    // Admin exclusive module
-    const userRole = this.authService.currentUser()?.role;
-    if (userRole === 'Admin' || userRole === 'Super Admin') {
-      items.push({ 
-        path: '/companies', 
-        label: 'Companies & Entities', 
-        icon: 'building',
-        badge: this.hrmsData.companies().length
-      });
-    }
-
-    items.push({ path: '/settings', label: 'Organization Settings', icon: 'settings' });
-    return items;
+    return this.menuLoaded() ? this.apiMenuItems().map(feature => ({
+      path: feature.path,
+      label: feature.title,
+      icon: feature.icon,
+      badge: feature.badge,
+      children: feature.children?.filter(child => child.enabled).map(child => ({
+        path: child.path,
+        label: child.title,
+        icon: child.icon,
+        badge: child.badge
+      }))
+    })) : [];
   });
+
+  isExpanded(path: string): boolean {
+    return this.expandedMenus().has(path);
+  }
+
+  toggleExpanded(path: string): void {
+    const expanded = new Set(this.expandedMenus());
+    if (expanded.has(path)) expanded.delete(path);
+    else expanded.add(path);
+    this.expandedMenus.set(expanded);
+  }
 }

@@ -17,16 +17,14 @@ import { BadgeComponent } from '../../shared/components/badge/badge.component';
       <div class="welcome-hero card">
         <div class="hero-content">
           <span class="hero-badge">Welcome back, {{ authService.currentUser()?.name || 'Administrator' }} 👋</span>
-          <h1 class="hero-title">PulseHRMS Intelligence Center</h1>
-          <p class="hero-subtitle">Here is a snapshot of your workforce operations, attendance, and team milestones today.</p>
+          <h1 class="hero-title">{{ currentCompanyName() }}</h1>
+          <p class="hero-subtitle">Workforce Intelligence & Operational Overview for <strong>{{ currentCompanyName() }}</strong>.</p>
         </div>
         <div class="hero-actions">
-          @if (authService.currentUser()?.role === 'Admin' || authService.currentUser()?.role === 'Super Admin') {
-            <a routerLink="/companies" class="btn btn-secondary">
-              <app-icon name="building" [size]="18"></app-icon>
-              <span>Companies ({{ companies().length }})</span>
-            </a>
-          }
+          <div class="company-badge-hero">
+            <app-icon name="building" [size]="18"></app-icon>
+            <span>{{ currentCompanyName() }}</span>
+          </div>
           <a routerLink="/employees" class="btn btn-primary">
             <app-icon name="user-plus" [size]="18"></app-icon>
             <span>Directory</span>
@@ -275,6 +273,19 @@ import { BadgeComponent } from '../../shared/components/badge/badge.component';
         display: flex;
         align-items: center;
         gap: 0.75rem;
+
+        .company-badge-hero {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 0.875rem;
+          border-radius: var(--radius-md);
+          background: rgba(99, 102, 241, 0.15);
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          color: var(--primary-700);
+          font-weight: 700;
+          font-size: 0.8125rem;
+        }
       }
     }
 
@@ -496,16 +507,52 @@ export class DashboardComponent {
   private readonly hrmsData = inject(HrmsDataService);
   readonly authService = inject(AuthService);
 
-  readonly totalEmployees = this.hrmsData.totalEmployees;
-  readonly presentToday = this.hrmsData.presentTodayCount;
-  readonly pendingLeaves = this.hrmsData.pendingLeaveRequests;
-  readonly departments = this.hrmsData.departments;
-  readonly todayAttendance = this.hrmsData.todayAttendance;
+  readonly currentCompanyName = computed(() => this.authService.currentUser()?.companyName || 'Corporate Workspace');
+  readonly currentCompanyId = computed(() => this.authService.currentUser()?.companyId);
+
+  // Scoped to currently logged-in company
+  readonly scopedEmployees = computed(() => {
+    const compId = this.currentCompanyId();
+    const compName = this.currentCompanyName().toLowerCase();
+    const all = this.hrmsData.employees();
+    if (!compId && !compName) return all;
+    const filtered = all.filter(e => 
+      (compId && e.companyId === compId) || 
+      (e.companyName && e.companyName.toLowerCase() === compName)
+    );
+    return filtered.length > 0 ? filtered : all;
+  });
+
+  readonly totalEmployees = computed(() => this.scopedEmployees().length);
+
+  readonly departments = computed(() => {
+    const compId = this.currentCompanyId();
+    const all = this.hrmsData.departments();
+    if (!compId) return all;
+    const filtered = all.filter(d => d.companyId === compId);
+    return filtered.length > 0 ? filtered : all;
+  });
+
+  readonly todayAttendance = computed(() => {
+    const empNames = new Set(this.scopedEmployees().map(e => `${e.firstName} ${e.lastName}`.trim()));
+    const empIds = new Set(this.scopedEmployees().map(e => e.id));
+    return this.hrmsData.todayAttendance().filter(a => empIds.has(a.employeeId) || empNames.has(a.employeeName));
+  });
+
+  readonly presentToday = computed(() => {
+    return this.todayAttendance().filter(a => a.status === 'Present' || a.status === 'Late').length;
+  });
+
+  readonly pendingLeaves = computed(() => {
+    const empNames = new Set(this.scopedEmployees().map(e => `${e.firstName} ${e.lastName}`.trim()));
+    const empIds = new Set(this.scopedEmployees().map(e => e.id));
+    return this.hrmsData.pendingLeaveRequests().filter(l => empIds.has(l.employeeId) || empNames.has(l.employeeName));
+  });
+
   readonly holidays = this.hrmsData.holidays;
-  readonly companies = this.hrmsData.companies;
 
   readonly formattedPayrollBudget = computed(() => {
-    const amount = this.hrmsData.totalPayrollBudget();
+    const amount = this.scopedEmployees().reduce((acc, emp) => acc + (emp.salary || 0), 0);
     return '₹' + (amount / 100000).toFixed(1) + ' Lakhs';
   });
 

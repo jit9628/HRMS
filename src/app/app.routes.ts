@@ -56,6 +56,10 @@ export const routes: Routes = [
       {
         path: 'settings',
         loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
+      },
+      {
+        path: 'access-control',
+        loadComponent: () => import('./features/access-control/access-control.component').then(m => m.AccessControlComponent)
       }
     ]
   },

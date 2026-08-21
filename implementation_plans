@@ -1,0 +1,262 @@
+# Implementation Plan - Spring Boot 3 HRM (Human Resource Management) Modulith
+
+Design and implement a production-grade, enterprise-level **Spring Boot 3 Modular Monolith (Spring Modulith)** backend application for Human Resource Management (HRMS). The application follows Domain-Driven Design (DDD) principles with well-encapsulated modules, asynchronous/transactional event-driven inter-module communication, Spring Modulith architectural verification and automated documentation generation, Spring Security JWT authentication, and full REST API parity with the Angular HRMS frontend.
+
+## User Review Required
+
+> [!IMPORTANT]
+> - **Location**: The backend will be initialized in `hrms-backend/` inside the workspace root (`d:\JITENDRA_SHUKLA\HRMS\hrms-backend`).
+> - **Technology Stack**:
+>   - **Java 21** & **Spring Boot 3.4.x** (or 3.3.x)
+>   - **Spring Modulith 1.3.x** (`spring-modulith-starter-core`, `spring-modulith-starter-jpa`, `spring-modulith-starter-test`, `spring-modulith-docs`)
+>   - **Spring Data JPA** & **H2 Database** (with PostgreSQL / MySQL production profiles)
+>   - **Spring Security 6** with **Stateless JWT Authentication** & RBAC (`SUPER_ADMIN`, `COMPANY_ADMIN`, `HR_MANAGER`, `EMPLOYEE`)
+>   - **SpringDoc OpenAPI 3 / Swagger UI** for interactive API documentation
+>   - **Spring Modulith Event Publication Registry** for guaranteed event delivery
+>   - **Maven** as the build management tool
+
+> [!NOTE]
+> All modules are designed with strict Spring Modulith boundaries: internal implementation classes reside in `.internal` packages or are package-private, while module APIs, DTOs, and Domain Events are exposed in the root module packages.
+
+---
+
+## Modulith Architecture & Domain Breakdown
+
+```mermaid
+graph TD
+    classDef module fill:#eef2ff,stroke:#6366f1,stroke-width:2px;
+    classDef event fill:#ecfdf5,stroke:#10b981,stroke-width:1.5px;
+    classDef core fill:#f8fafc,stroke:#64748b,stroke-width:1.5px;
+
+    IAM[IAM / Auth Module]:::module
+    ORG[Organization Module]:::module
+    EMP[Employee Module]:::module
+    ATT[Attendance Module]:::module
+    LEV[Leave Module]:::module
+    PAY[Payroll Module]:::module
+    REC[Recruitment ATS Module]:::module
+    PERF[Performance OKR Module]:::module
+    NOTIF[Notification Module]:::module
+
+    REC -->|CandidateHiredEvent| EMP
+    EMP -->|EmployeeOnboardedEvent| LEV
+    EMP -->|EmployeeOnboardedEvent| NOTIF
+    EMP -->|EmployeeTerminatedEvent| IAM
+    EMP -->|EmployeeSalaryUpdatedEvent| PAY
+    LEV -->|LeaveApprovedEvent| ATT
+    LEV -->|LeaveApprovedEvent| PAY
+    ATT -->|AttendanceRecordedEvent| PAY
+    LEV -->|LeaveAppliedEvent| NOTIF
+    PAY -->|PayrollProcessedEvent| NOTIF
+```
+
+---
+
+## Proposed Modules & API Endpoints
+
+### 1. `common` (Shared Kernel)
+- **Base Entities & Auditing**: `BaseEntity` (`id`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`).
+- **Response Wrappers**: `ApiResponse<T>`, `PageResponse<T>`, `ErrorResponse`.
+- **Global Exception Handling**: `@RestControllerAdvice` handling validation errors, resource not found, unauthorized, and business exceptions.
+- **OpenAPI Configuration**: Custom OpenAPI 3.0 bean with JWT Bearer security scheme.
+- **CORS Configuration**: Open for `http://localhost:4200` with full REST verbs.
+
+### 2. `iam` (Identity & Access Management)
+- **Domain**: `UserAccount`, `Role` (`SUPER_ADMIN`, `COMPANY_ADMIN`, `HR_MANAGER`, `EMPLOYEE`), `UserPrincipal`.
+- **Services**: `AuthenticationService`, `JwtTokenProvider`, `CustomUserDetailsService`.
+- **Endpoints**:
+  - `POST /api/v1/auth/login` (Returns JWT token, user info, role permissions)
+  - `POST /api/v1/auth/register` (Account creation)
+  - `POST /api/v1/auth/refresh` (Refresh access token)
+  - `GET /api/v1/auth/me` (Current authenticated user profile)
+  - `POST /api/v1/auth/change-password`
+
+### 3. `organization` (Company, Departments & Designations)
+- **Domain**: `CompanyProfile`, `Department`, `Designation`.
+- **Endpoints**:
+  - `GET /api/v1/companies`, `GET /api/v1/companies/{id}`, `POST /api/v1/companies`, `PUT /api/v1/companies/{id}`
+  - `GET /api/v1/departments`, `POST /api/v1/departments`, `PUT /api/v1/departments/{id}`, `DELETE /api/v1/departments/{id}`
+  - `GET /api/v1/designations`, `POST /api/v1/designations`, `PUT /api/v1/designations/{id}`
+- **Public API**: `OrganizationPublicService` for department and designation validation.
+
+### 4. `employee` (Core Employee Management & Lifecycle)
+- **Domain**: `Employee`, `Address`, `EmergencyContact`, `BankDetails`, `EmploymentType`, `EmployeeStatus`.
+- **Endpoints**:
+  - `GET /api/v1/employees` (Paginated, filtered by department, status, search query)
+  - `GET /api/v1/employees/{id}` (Detailed profile)
+  - `POST /api/v1/employees` (Onboard employee)
+  - `PUT /api/v1/employees/{id}` (Update personal & job details)
+  - `PATCH /api/v1/employees/{id}/status` (Status transition)
+  - `GET /api/v1/employees/stats` (Department distribution, status breakdown)
+- **Events Published**: `EmployeeOnboardedEvent`, `EmployeeStatusChangedEvent`, `EmployeeSalaryUpdatedEvent`.
+- **Events Listened**: `@ApplicationModuleListener` for `CandidateHiredEvent`.
+
+### 5. `attendance` (Time Tracking & Daily Logs)
+- **Domain**: `AttendanceRecord`, `AttendanceStatus` (`Present`, `Late`, `Half Day`, `Absent`, `On Leave`, `Holiday`).
+- **Endpoints**:
+  - `POST /api/v1/attendance/punch-in`
+  - `POST /api/v1/attendance/punch-out`
+  - `GET /api/v1/attendance/today-status` (Current clock status & elapsed timer)
+  - `GET /api/v1/attendance/records` (Date range, employee filter)
+  - `GET /api/v1/attendance/stats` (Average working hours, on-time %, late marks)
+- **Events Listened**: `@ApplicationModuleListener` for `LeaveApprovedEvent` (auto-marks attendance as `ON_LEAVE`).
+
+### 6. `leave` (Leave Balances & Workflow Approval)
+- **Domain**: `LeaveRequest`, `LeaveBalance`, `LeaveType`, `Holiday`, `LeaveStatus` (`Pending`, `Approved`, `Rejected`, `Cancelled`).
+- **Endpoints**:
+  - `GET /api/v1/leaves/balances/{employeeId}` (Casual, Sick, Paid, Maternity balances)
+  - `POST /api/v1/leaves/apply` (Submit leave application)
+  - `GET /api/v1/leaves/requests` (Filter by status, employee, date)
+  - `PATCH /api/v1/leaves/requests/{id}/approve` (Manager approval, updates balance & publishes event)
+  - `PATCH /api/v1/leaves/requests/{id}/reject`
+  - `GET /api/v1/leaves/holidays`
+- **Events Published**: `LeaveAppliedEvent`, `LeaveApprovedEvent`, `LeaveRejectedEvent`.
+- **Events Listened**: `@ApplicationModuleListener` for `EmployeeOnboardedEvent` (allocates initial leave quota).
+
+### 7. `payroll` (Salary Processing & Payslips)
+- **Domain**: `SalaryStructure`, `Payslip`, `PayrollRun`, `PaymentStatus` (`Paid`, `Processing`, `Pending`).
+- **Earnings & Deductions**: Basic, HRA, Special Allowance, PF, Professional Tax, TDS, Health Insurance, LOP deduction calculation.
+- **Endpoints**:
+  - `POST /api/v1/payroll/generate-monthly` (Generates payslips for month based on attendance & leaves)
+  - `GET /api/v1/payroll/payslips` (Filtered by month, employee)
+  - `GET /api/v1/payroll/payslips/{id}` (Detailed payslip breakdown)
+  - `PATCH /api/v1/payroll/payslips/{id}/pay` (Mark as paid)
+  - `GET /api/v1/payroll/summary` (Total Gross, Net Pay, Deductions)
+- **Events Published**: `PayrollProcessedEvent`, `PayslipGeneratedEvent`.
+
+### 8. `recruitment` (ATS & Candidate Pipeline)
+- **Domain**: `JobPosting`, `Candidate`, `JobStatus`, `CandidateStage` (`Applied`, `Screening`, `Interview`, `Offered`, `Hired`, `Rejected`).
+- **Endpoints**:
+  - `GET /api/v1/recruitment/jobs`, `POST /api/v1/recruitment/jobs`, `PUT /api/v1/recruitment/jobs/{id}`
+  - `GET /api/v1/recruitment/candidates`, `POST /api/v1/recruitment/candidates`
+  - `PATCH /api/v1/recruitment/candidates/{id}/stage` (Pipeline stage transition; when `HIRED`, publishes `CandidateHiredEvent`!)
+- **Events Published**: `CandidateHiredEvent`.
+
+### 9. `performance` (Goals & Appraisals)
+- **Domain**: `Goal`, `AppraisalReview`, `GoalPriority`, `GoalStatus`, `ReviewStatus`.
+- **Endpoints**:
+  - `GET /api/v1/performance/goals`, `POST /api/v1/performance/goals`, `PATCH /api/v1/performance/goals/{id}/progress`
+  - `GET /api/v1/performance/reviews`, `POST /api/v1/performance/reviews`
+
+### 10. `notification` (Announcements & In-App Alerts)
+- **Domain**: `Announcement`, `NotificationLog`.
+- **Endpoints**:
+  - `GET /api/v1/notifications/announcements`, `POST /api/v1/notifications/announcements`
+  - `GET /api/v1/notifications/my-notifications`, `PATCH /api/v1/notifications/{id}/read`
+- **Events Listened**: `@ApplicationModuleListener` across events from Employee, Leave, Payroll, Recruitment.
+
+---
+
+## Proposed Changes
+
+We will create a standalone backend maven project directory in `hrms-backend/`:
+
+### Backend Root Configuration
+#### [NEW] [pom.xml](file:///d:/JITENDRA_SHUKLA/HRMS/hrms-backend/pom.xml)
+- Spring Boot 3.4.2 / 3.3.5 starter parent
+- Spring Modulith Starter Core, Starter JPA, Starter Test, Docs, Actuator
+- Spring Boot Starter Web, Data JPA, Security, Validation, H2 Database
+- JWT library (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`)
+- SpringDoc OpenAPI 3 Starter (`springdoc-openapi-starter-webmvc-ui`)
+- Lombok, MapStruct (optional/clean DTO mappers)
+
+#### [NEW] [application.yml](file:///d:/JITENDRA_SHUKLA/HRMS/hrms-backend/src/main/resources/application.yml)
+- H2 in-memory DB configuration with H2 console enabled at `/h2-console`
+- JPA Hibernate DDL auto `update`, SQL formatting
+- JWT secret, expiration configuration
+- Spring Modulith event publication configuration
+- Server port: `8080`
+
+#### [NEW] [data.sql](file:///d:/JITENDRA_SHUKLA/HRMS/hrms-backend/src/main/resources/data.sql)
+- Rich initial seed data (matching the Angular HRMS application):
+  - Admin & Employee user accounts (with BCrypt passwords)
+  - 15+ Employees, Departments, Designations
+  - Initial Leave Balances, Holidays, Sample Leave Requests
+  - Attendance Logs for the current month
+  - Job Postings & Candidates in pipeline
+  - Goals & Appraisal Reviews
+  - Payslips for recent months
+  - Announcements
+
+### Java Package Structure & Implementation
+#### [NEW] `com.hrms.modulith.HrmsApplication`
+- Main entry point with `@SpringBootApplication` and Spring Modulith annotations.
+
+#### [NEW] `com.hrms.modulith.common.*`
+- `BaseEntity`, `ApiResponse`, `PageResponse`, `GlobalExceptionHandler`, `OpenApiConfig`, `SecurityConfig`, `JwtAuthenticationFilter`, `JwtTokenProvider`.
+
+#### [NEW] `com.hrms.modulith.organization.*`
+- Entities: `CompanyProfile`, `Department`, `Designation`
+- Repositories, Services, REST Controllers, DTOs
+
+#### [NEW] `com.hrms.modulith.iam.*`
+- Entities: `UserAccount`, `Role`
+- Auth Controller, Auth Service, Security Principal
+
+#### [NEW] `com.hrms.modulith.employee.*`
+- Entities: `Employee`, `Address`, `BankDetails`, `EmergencyContact`
+- Events: `EmployeeOnboardedEvent`, `EmployeeSalaryUpdatedEvent`
+- Repositories, Services, REST Controllers, Event Listeners
+
+#### [NEW] `com.hrms.modulith.attendance.*`
+- Entities: `AttendanceRecord`
+- Services, REST Controllers, Daily punch logic, Event Listeners
+
+#### [NEW] `com.hrms.modulith.leave.*`
+- Entities: `LeaveRequest`, `LeaveBalance`, `Holiday`
+- Events: `LeaveApprovedEvent`, `LeaveAppliedEvent`
+- Approval workflows, Repositories, Controllers, Event Listeners
+
+#### [NEW] `com.hrms.modulith.payroll.*`
+- Entities: `SalaryStructure`, `Payslip`
+- Calculation logic (Gross, Net, Tax, Deductions, LOP)
+- Controllers, Repositories, Event Listeners
+
+#### [NEW] `com.hrms.modulith.recruitment.*`
+- Entities: `JobPosting`, `Candidate`
+- Events: `CandidateHiredEvent`
+- Pipeline progression controllers, Repositories
+
+#### [NEW] `com.hrms.modulith.performance.*`
+- Entities: `Goal`, `AppraisalReview`
+- Services, Repositories, Controllers
+
+#### [NEW] `com.hrms.modulith.notification.*`
+- Entities: `Announcement`, `NotificationMessage`
+- Event listeners for all cross-module notifications
+
+### Tests & Modulith Architecture Verification
+#### [NEW] [HrmsModulithTests.java](file:///d:/JITENDRA_SHUKLA/HRMS/hrms-backend/src/test/java/com/hrms/modulith/HrmsModulithTests.java)
+- Verifies module structure: `ApplicationModules.of(HrmsApplication.class).verify()`
+- Generates PlantUML / C4 Modulith architectural documentation: `new Documenter(modules).writeDocumentation()`
+- Module-specific integration tests.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+1. **Maven Build & Compilation**:
+   ```powershell
+   mvn clean compile -f hrms-backend/pom.xml
+   ```
+2. **Spring Modulith Structural Verification & Documentation Tests**:
+   ```powershell
+   mvn test -f hrms-backend/pom.xml
+   ```
+   - Validates that no module violates encapsulation boundaries or has circular direct dependencies.
+   - Verifies generated documentation in `target/spring-modulith-docs`.
+
+### Manual Verification
+1. **Application Startup**:
+   ```powershell
+   mvn spring-boot:run -f hrms-backend/pom.xml
+   ```
+2. **Swagger UI Validation**:
+   - Access `http://localhost:8080/swagger-ui.html` and verify all REST endpoints are documented with schemas.
+3. **API Smoke Test via cURL / PowerShell**:
+   - Login: `POST /api/v1/auth/login` (admin credentials) -> obtain JWT.
+   - Query Employees: `GET /api/v1/employees` with `Authorization: Bearer <token>`.
+   - Punch In: `POST /api/v1/attendance/punch-in`.
+   - Apply Leave: `POST /api/v1/leaves/apply` -> Approve Leave -> verify Attendance & Balance updates.
+   - Hire Candidate: `PATCH /api/v1/recruitment/candidates/{id}/stage` (stage=HIRED) -> verify Employee creation via Modulith Event.

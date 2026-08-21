@@ -47,14 +47,21 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <div class="filter-controls">
           <!-- Company Filter -->
-          <div class="select-filter">
-            <select class="form-control" [ngModel]="selectedCompanyId()" (ngModelChange)="selectedCompanyId.set($event)">
-              <option value="ALL">All Companies ({{ companies().length }})</option>
-              @for (comp of companies(); track comp.id) {
-                <option [value]="comp.id">{{ comp.companyName }}</option>
-              }
-            </select>
-          </div>
+          @if (authService.currentUser()?.role === 'Super Admin') {
+            <div class="select-filter">
+              <select class="form-control" [ngModel]="selectedCompanyId()" (ngModelChange)="selectedCompanyId.set($event)">
+                <option value="ALL">All Companies ({{ companies().length }})</option>
+                @for (comp of companies(); track comp.id) {
+                  <option [value]="comp.id">{{ comp.companyName }}</option>
+                }
+              </select>
+            </div>
+          } @else {
+            <div class="current-company-badge-pill">
+              <app-icon name="building" [size]="16"></app-icon>
+              <span>{{ authService.currentUser()?.companyName || 'My Organization' }}</span>
+            </div>
+          }
 
           <!-- Department Filter -->
           <div class="select-filter">
@@ -260,6 +267,19 @@ import { AuthService } from '../../../core/services/auth.service';
         align-items: center;
         gap: 0.75rem;
         flex-wrap: wrap;
+
+        .current-company-badge-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.45rem 0.875rem;
+          border-radius: var(--radius-md);
+          background: var(--bg-surface-subtle);
+          border: 1px solid var(--border-color);
+          color: var(--text-main);
+          font-weight: 700;
+          font-size: 0.8125rem;
+        }
       }
     }
 

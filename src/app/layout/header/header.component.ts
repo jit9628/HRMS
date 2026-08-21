@@ -55,44 +55,15 @@ import { HrmsDataService } from '../../core/services/hrms-data.service';
 
       <!-- Right: Company Switcher, Punch widget, Theme toggle, Notifications, User profile -->
       <div class="header-right">
-        <!-- Active Company Pill -->
+        <!-- Active Company Pill (Logged-in company only) -->
         <div class="company-header-wrapper">
-          <div class="company-header-pill" (click)="toggleCompanyMenu()">
+          <div class="company-header-pill static-pill" [title]="authService.currentUser()?.companyName || 'Organization'">
             <div class="company-dot"></div>
             <div class="company-text">
               <span class="company-label">ORGANIZATION</span>
-              <span class="company-name">{{ authService.currentUser()?.companyName || 'Pulse Technologies (HQ)' }}</span>
+              <span class="company-name">{{ authService.currentUser()?.companyName || 'Corporate Workspace' }}</span>
             </div>
-            <app-icon name="chevron-down" [size]="12"></app-icon>
           </div>
-
-          @if (showCompanyMenu()) {
-            <div class="company-dropdown card" (click)="$event.stopPropagation()">
-              <div class="dropdown-header flex-between">
-                <span>Switch Organization</span>
-                <span class="badge badge-neutral font-mono">{{ companies().length }} Total</span>
-              </div>
-              <div class="company-dropdown-list">
-                @for (c of companies(); track c.id) {
-                  <div 
-                    class="company-dropdown-item" 
-                    [class.active]="c.id === authService.currentUser()?.companyId"
-                    (click)="selectCompany(c)">
-                    <div class="flex-align gap-2">
-                      <span class="c-item-dot" [style.background]="c.brandColor || 'var(--primary-600)'"></span>
-                      <div>
-                        <div class="c-item-name">{{ c.companyName }}</div>
-                        <div class="c-item-sub">{{ c.type }} • {{ c.city }}</div>
-                      </div>
-                    </div>
-                    @if (c.id === authService.currentUser()?.companyId) {
-                      <app-icon name="check" [size]="16"></app-icon>
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          }
         </div>
 
         <!-- Punch Widget -->

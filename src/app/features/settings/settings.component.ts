@@ -9,6 +9,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { Department } from '../../core/models/employee.model';
 import { CompanyProfile } from '../../core/models/company.model';
+import { DepartmentApiService } from '../../core/services/department-api.service';
 
 @Component({
   selector: 'app-settings',
@@ -132,7 +133,12 @@ import { CompanyProfile } from '../../core/models/company.model';
                 <h3 class="section-title">Departments ({{ companyDepartments().length }})</h3>
                 <span class="text-muted font-xs">For {{ selectedCompany()?.companyName }}</span>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" (click)="openAddDeptModal()">
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                (click)="openAddDeptModal()"
+                [disabled]="!isCompanyAdmin()"
+                [title]="isCompanyAdmin() ? 'Add new department' : 'Only Company Admin can add departments'">
                 <app-icon name="plus" [size]="14"></app-icon>
                 <span>Add Dept</span>
               </button>
@@ -150,7 +156,12 @@ import { CompanyProfile } from '../../core/models/company.model';
                   </div>
                   <div class="flex-align gap-2">
                     <span class="badge badge-neutral">{{ dept.totalEmployees }} staff</span>
-                    <button type="button" class="btn btn-danger btn-icon btn-sm" (click)="deleteDept(dept)" title="Delete Department">
+                    <button 
+                      type="button" 
+                      class="btn btn-danger btn-icon btn-sm" 
+                      (click)="deleteDept(dept)" 
+                      [disabled]="!isCompanyAdmin()"
+                      title="Delete Department">
                       <app-icon name="trash" [size]="14"></app-icon>
                     </button>
                   </div>
@@ -158,7 +169,11 @@ import { CompanyProfile } from '../../core/models/company.model';
               } @empty {
                 <div class="empty-dept-box">
                   <p class="font-xs text-muted">No custom departments added yet for this company.</p>
-                  <button type="button" class="btn btn-primary btn-sm mt-2" (click)="openAddDeptModal()">
+                  <button 
+                    type="button" 
+                    class="btn btn-primary btn-sm mt-2" 
+                    (click)="openAddDeptModal()"
+                    [disabled]="!isCompanyAdmin()">
                     <app-icon name="plus" [size]="14"></app-icon>
                     <span>Create First Department</span>
                   </button>
@@ -350,6 +365,7 @@ export class SettingsComponent {
   private readonly hrmsData = inject(HrmsDataService);
   readonly authService = inject(AuthService);
   readonly themeService = inject(ThemeService);
+  private readonly deptApi = inject(DepartmentApiService);
   private readonly toast = inject(NotificationService);
   private readonly fb = inject(FormBuilder);
 
@@ -357,6 +373,11 @@ export class SettingsComponent {
   readonly selectedCompanyId = signal<string>(
     this.authService.currentUser()?.companyId || this.hrmsData.companies()[0]?.id || 'CMP-101'
   );
+
+  readonly isCompanyAdmin = computed(() => {
+    const r = this.authService.currentUser()?.role;
+    return r === 'Company Admin' || r === 'Super Admin' || r === 'Admin';
+  });
 
   readonly selectedCompany = computed<CompanyProfile | undefined>(() => {
     return this.companies().find(c => c.id === this.selectedCompanyId());
@@ -399,6 +420,10 @@ export class SettingsComponent {
   }
 
   openAddDeptModal(): void {
+    if (!this.isCompanyAdmin()) {
+      this.toast.error('Permission Denied', 'Only Company Admin can add departments.');
+      return;
+    }
     this.deptForm.reset({
       name: '',
       code: '',
@@ -409,7 +434,7 @@ export class SettingsComponent {
   }
 
   saveDepartment(): void {
-    if (this.deptForm.invalid) return;
+    if (this.deptForm.invalid || !this.isCompanyAdmin()) return;
     const formVal = this.deptForm.value;
     const comp = this.selectedCompany();
     if (!comp) return;
@@ -422,14 +447,38 @@ export class SettingsComponent {
       color: formVal.color
     });
 
-    this.toast.success('Department Created', `${newDept.name} added for ${comp.companyName}.`);
+    // Call Spring Boot backend API: POST http://localhost:8080/api/v1/departments
+    this.deptApi.createDepartment({
+      companyId: comp.id,
+      name: formVal.name,
+      code: formVal.code.toUpperCase(),
+      headOfDepartment: formVal.headOfDepartment,
+      color: formVal.color
+    }).subscribe({
+      next: () => {
+        this.toast.success('Department Created', `${newDept.name} (${newDept.code}) saved to backend for ${comp.companyName}.`);
+      },
+      error: (err) => {
+        console.warn('Department API sync note:', err?.message);
+        this.toast.success('Department Created (Local)', `${newDept.name} added for ${comp.companyName}.`);
+      }
+    });
+
     this.isDeptModalOpen.set(false);
   }
 
   deleteDept(dept: Department): void {
-    if (confirm(`Delete department "${dept.name}"?`)) {
+    if (!this.isCompanyAdmin()) {
+      this.toast.error('Permission Denied', 'Only Company Admin can delete departments.');
+      return;
+    }
+
+    if (confirm(`Delete department "${dept.name}" from ${this.selectedCompany()?.companyName || 'company'}?`)) {
       this.hrmsData.deleteDepartment(dept.id);
-      this.toast.warning('Department Removed', `${dept.name} deleted.`);
+      this.deptApi.deleteDepartment(dept.id).subscribe({
+        next: () => this.toast.warning('Department Removed', `${dept.name} deleted from backend.`),
+        error: () => this.toast.warning('Department Removed', `${dept.name} deleted.`)
+      });
     }
   }
 
