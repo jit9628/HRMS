@@ -6,6 +6,7 @@ import com.hrms.modulith.iam.dto.MenuAssignmentRequest;
 import com.hrms.modulith.iam.dto.RoleAssignmentRequest;
 import com.hrms.modulith.iam.dto.UserFeaturesResponse;
 import com.hrms.modulith.iam.dto.PermissionAssignmentRequest;
+import com.hrms.modulith.iam.dto.DefinitionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,8 @@ public class UserController {
     private final AuthService authService;
     private final UserPermissionAssignmentRepository permissionRepository;
     private final UserAccountRepository userRepository;
+    private final RoleDefinitionRepository roleDefinitionRepository;
+    private final PermissionDefinitionRepository permissionDefinitionRepository;
 
     @GetMapping("/{userId}/features")
     @Operation(summary = "Get dynamic menu features for a specific user ID")
@@ -110,5 +113,38 @@ public class UserController {
             .orElseThrow(() -> new com.hrms.modulith.common.exception.ResourceNotFoundException("UserAccount", "id", userId)));
         permissionRepository.deleteByUserId(userId);
         return ResponseEntity.ok(ApiResponse.ok("Permissions removed successfully", null));
+    }
+
+    @GetMapping("/access-control/roles")
+    public ResponseEntity<ApiResponse<List<RoleDefinition>>> getRoles() {
+        return ResponseEntity.ok(ApiResponse.ok(roleDefinitionRepository.findAll()));
+    }
+
+    @PostMapping("/access-control/roles")
+    public ResponseEntity<ApiResponse<RoleDefinition>> createRole(@Valid @RequestBody DefinitionRequest request) {
+        requireSuperAdmin();
+        RoleDefinition role = roleDefinitionRepository.save(RoleDefinition.builder()
+                .code(request.getCode().trim().toUpperCase()).name(request.getName().trim()).description(request.getDescription()).build());
+        return ResponseEntity.ok(ApiResponse.ok("Role created successfully", role));
+    }
+
+    @GetMapping("/access-control/permissions")
+    public ResponseEntity<ApiResponse<List<PermissionDefinition>>> getPermissionDefinitions() {
+        return ResponseEntity.ok(ApiResponse.ok(permissionDefinitionRepository.findAll()));
+    }
+
+    @PostMapping("/access-control/permissions")
+    public ResponseEntity<ApiResponse<PermissionDefinition>> createPermission(@Valid @RequestBody DefinitionRequest request) {
+        requireSuperAdmin();
+        PermissionDefinition permission = permissionDefinitionRepository.save(PermissionDefinition.builder()
+                .code(request.getCode().trim().toUpperCase()).name(request.getName().trim()).description(request.getDescription()).build());
+        return ResponseEntity.ok(ApiResponse.ok("Permission created successfully", permission));
+    }
+
+    private void requireSuperAdmin() {
+        String role = com.hrms.modulith.common.security.SecurityUtils.getCurrentUserRole().orElse("");
+        if (!"Super Admin".equalsIgnoreCase(role) && !"SUPER_ADMIN".equalsIgnoreCase(role)) {
+            throw new com.hrms.modulith.common.exception.BadRequestException("Only Super Admin can create roles and permissions");
+        }
     }
 }

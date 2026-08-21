@@ -36,7 +36,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 user.getDepartment(),
                 user.getDesignation(),
                 userRoleAssignmentRepository.findByUserId(user.getId()).stream()
-                    .map(assignment -> assignment.getRole().getDisplayName())
+                    .map(UserRoleAssignment::getRole)
                     .toList()
         );
     }

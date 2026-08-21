@@ -10,6 +10,8 @@ export interface UserPermissionAssignment {
   permissionCode: string;
 }
 
+export interface Definition { id: string; code: string; name: string; description?: string; }
+
 @Injectable({ providedIn: 'root' })
 export class AccessControlApiService {
   private readonly http = inject(HttpClient);
@@ -29,5 +31,21 @@ export class AccessControlApiService {
 
   clearPermissions(userId: string): Observable<void> {
     return this.http.delete<ApiResponse<void>>(`${this.API_URL}/users/${userId}/permission-assignments`).pipe(map(() => void 0));
+  }
+
+  getRoles(): Observable<Definition[]> {
+    return this.http.get<ApiResponse<Definition[]>>(`${this.API_URL}/users/access-control/roles`).pipe(map(response => response.data || []));
+  }
+
+  createRole(code: string, name: string, description: string): Observable<Definition> {
+    return this.http.post<ApiResponse<Definition>>(`${this.API_URL}/users/access-control/roles`, { code, name, description }).pipe(map(response => response.data));
+  }
+
+  getPermissionDefinitions(): Observable<Definition[]> {
+    return this.http.get<ApiResponse<Definition[]>>(`${this.API_URL}/users/access-control/permissions`).pipe(map(response => response.data || []));
+  }
+
+  createPermission(code: string, name: string, description: string): Observable<Definition> {
+    return this.http.post<ApiResponse<Definition>>(`${this.API_URL}/users/access-control/permissions`, { code, name, description }).pipe(map(response => response.data));
   }
 }

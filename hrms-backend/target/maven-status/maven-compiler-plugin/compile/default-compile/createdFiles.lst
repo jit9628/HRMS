@@ -26,6 +26,7 @@ com\hrms\modulith\attendance\AttendanceStatus.class
 com\hrms\modulith\organization\dto\DepartmentDto.class
 com\hrms\modulith\leave\LeaveRequestRepository.class
 com\hrms\modulith\organization\CompanyController.class
+com\hrms\modulith\iam\RoleDefinition.class
 com\hrms\modulith\iam\dto\UserDto$UserDtoBuilder.class
 com\hrms\modulith\employee\EmployeeOnboardedEvent.class
 com\hrms\modulith\payroll\dto\GeneratePayrollRequest.class
@@ -69,6 +70,7 @@ com\hrms\modulith\performance\dto\GoalDto$GoalDtoBuilder.class
 com\hrms\modulith\organization\CompanyProfileRepository.class
 com\hrms\modulith\leave\Holiday$HolidayBuilder.class
 com\hrms\modulith\common\exception\BadRequestException.class
+com\hrms\modulith\iam\RoleDefinitionRepository.class
 com\hrms\modulith\iam\UserAccountRepository.class
 com\hrms\modulith\recruitment\CandidateStage.class
 com\hrms\modulith\employee\Address.class
@@ -77,6 +79,7 @@ com\hrms\modulith\leave\dto\LeaveBalanceDto$BalanceItem.class
 com\hrms\modulith\iam\UserAccount.class
 com\hrms\modulith\employee\dto\UpdateEmployeeRequest.class
 com\hrms\modulith\common\exception\ResourceNotFoundException.class
+com\hrms\modulith\iam\PermissionDefinitionRepository.class
 com\hrms\modulith\recruitment\dto\CreateJobRequest.class
 com\hrms\modulith\common\dto\ErrorResponse$ErrorResponseBuilder.class
 com\hrms\modulith\leave\LeaveApprovedEvent.class
@@ -91,6 +94,7 @@ com\hrms\modulith\iam\CustomUserDetailsService.class
 com\hrms\modulith\recruitment\RecruitmentService.class
 com\hrms\modulith\common\dto\PageResponse.class
 com\hrms\modulith\employee\dto\CreateEmployeeRequest.class
+com\hrms\modulith\iam\PermissionDefinition.class
 com\hrms\modulith\recruitment\Candidate.class
 com\hrms\modulith\iam\dto\UserFeatureDto$UserFeatureDtoBuilder.class
 com\hrms\modulith\attendance\dto\PunchStatusDto$PunchStatusDtoBuilder.class
@@ -168,6 +172,7 @@ com\hrms\modulith\performance\AppraisalReview$AppraisalReviewBuilder.class
 com\hrms\modulith\leave\dto\ApplyLeaveRequest.class
 com\hrms\modulith\attendance\AttendanceService.class
 com\hrms\modulith\iam\dto\LoginResponse$LoginResponseBuilder.class
+com\hrms\modulith\iam\PermissionDefinition$PermissionDefinitionBuilder.class
 com\hrms\modulith\recruitment\Candidate$CandidateBuilder.class
 com\hrms\modulith\organization\dto\CreateDepartmentRequest$CreateDepartmentRequestBuilder.class
 com\hrms\modulith\attendance\dto\AttendanceRecordDto$AttendanceRecordDtoBuilder.class
@@ -176,6 +181,7 @@ com\hrms\modulith\common\domain\BaseEntity.class
 com\hrms\modulith\performance\Goal$GoalBuilder.class
 com\hrms\modulith\recruitment\CandidateHiredEvent.class
 com\hrms\modulith\leave\dto\LeaveRequestDto.class
+com\hrms\modulith\iam\dto\DefinitionRequest.class
 com\hrms\modulith\iam\dto\RegisterRequest.class
 com\hrms\modulith\leave\dto\HolidayDto$HolidayDtoBuilder.class
 com\hrms\modulith\notification\NotificationLog.class
@@ -190,6 +196,7 @@ com\hrms\modulith\employee\EmployeeSalaryUpdatedEvent.class
 com\hrms\modulith\organization\DepartmentRepository.class
 com\hrms\modulith\leave\LeaveBalance$LeaveBalanceBuilder.class
 com\hrms\modulith\employee\BankDetails.class
+com\hrms\modulith\iam\RoleDefinition$RoleDefinitionBuilder.class
 com\hrms\modulith\common\dto\PageResponse$PageResponseBuilder.class
 com\hrms\modulith\employee\EmployeeRepository.class
 com\hrms\modulith\iam\MenuService.class

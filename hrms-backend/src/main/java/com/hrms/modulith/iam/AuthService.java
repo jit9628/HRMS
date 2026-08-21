@@ -27,6 +27,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final UserRoleAssignmentRepository roleAssignmentRepository;
+    private final RoleDefinitionRepository roleDefinitionRepository;
 
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -122,7 +123,8 @@ public class AuthService {
             throw new BadRequestException("At least one role is required");
         }
         UserAccount user = target;
-        List<Role> roles = roleNames.stream().map(String::trim).map(this::parseRole).distinct().toList();
+        List<String> normalizedRoles = roleNames.stream().map(String::trim).map(String::toUpperCase).distinct().toList();
+        List<Role> roles = normalizedRoles.stream().map(this::parseRole).filter(java.util.Objects::nonNull).toList();
         if (roles.stream().anyMatch(role -> role == Role.SUPER_ADMIN || role == Role.ADMIN)
                 && !isSuperAdmin()) {
             throw new BadRequestException("Company Admin cannot assign Super Admin or Admin roles");
@@ -130,9 +132,10 @@ public class AuthService {
         if (roles.stream().anyMatch(role -> role == Role.EMPLOYEE) && roles.size() > 1) {
             throw new BadRequestException("Employee cannot be combined with another role");
         }
-        user.setRole(roles.get(0));
+        String primaryRole = roles.isEmpty() ? user.getRole().name() : roles.get(0).name();
+        user.setRole(Role.fromString(primaryRole));
         roleAssignmentRepository.deleteAll(roleAssignmentRepository.findByUserId(userId));
-        roles.stream().skip(1).map(role -> UserRoleAssignment.builder().userId(userId).role(role).build())
+        normalizedRoles.stream().filter(role -> !role.equals(primaryRole)).map(role -> UserRoleAssignment.builder().userId(userId).role(role).build())
                 .forEach(roleAssignmentRepository::save);
         return mapToDto(userRepository.save(user));
     }
@@ -169,11 +172,9 @@ public class AuthService {
 
     private Role parseRole(String roleName) {
         Role role = Role.fromString(roleName);
-        if (role == Role.EMPLOYEE && !"Employee".equalsIgnoreCase(roleName)
-                && !"EMPLOYEE".equalsIgnoreCase(roleName)) {
-            throw new BadRequestException("Invalid role: " + roleName);
-        }
-        return role;
+        if (role != Role.EMPLOYEE || "EMPLOYEE".equalsIgnoreCase(roleName)) return role;
+        if (roleDefinitionRepository.findByCode(roleName).isPresent()) return null;
+        throw new BadRequestException("Invalid role: " + roleName);
     }
 
     @Transactional(readOnly = true)
@@ -209,7 +210,7 @@ public class AuthService {
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole().getDisplayName())
-                .roles(getRoles(user).stream().map(Role::getDisplayName).toList())
+                .roles(getRoleNames(user))
                 .designation(user.getDesignation())
                 .department(user.getDepartment())
                 .avatarInitials(user.getAvatarInitials())
@@ -219,9 +220,9 @@ public class AuthService {
                 .build();
     }
 
-    public List<Role> getRoles(UserAccount user) {
+    public List<String> getRoleNames(UserAccount user) {
         return java.util.stream.Stream.concat(
-                java.util.stream.Stream.of(user.getRole()),
+                java.util.stream.Stream.of(user.getRole().getDisplayName()),
                 roleAssignmentRepository.findByUserId(user.getId()).stream().map(UserRoleAssignment::getRole))
                 .distinct().toList();
     }

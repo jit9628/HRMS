@@ -16,7 +16,6 @@ public class UserRoleAssignment extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
-    private Role role;
+    private String role;
 }

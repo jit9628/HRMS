@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { MenuApiService } from '../../core/services/menu-api.service';
-import { AccessControlApiService } from '../../core/services/access-control-api.service';
+import { AccessControlApiService, Definition } from '../../core/services/access-control-api.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { AuthUser } from '../../core/models/auth.model';
@@ -30,9 +30,10 @@ import { forkJoin } from 'rxjs';
         @if (selectedUser(); as user) {
           <section class="card access-panel">
             <div class="flex-between"><div><h2>{{ user.name }}</h2><p>{{ user.email }}</p></div><span class="badge badge-primary">{{ user.role }}</span></div>
-            <div class="access-section"><h3>Assign Roles</h3><div class="check-grid">@for (role of roles; track role) {<label><input type="checkbox" [checked]="selectedRoles().has(role)" (change)="toggleRole(role)"> {{ role }}</label>}</div><button class="btn btn-primary btn-sm" type="button" (click)="saveRoles()">Save Roles</button></div>
+            <div class="catalog-creator"><input [(ngModel)]="newRoleCode" placeholder="Role code"><input [(ngModel)]="newRoleName" placeholder="Role name"><button class="btn btn-secondary btn-sm" type="button" (click)="createRole()">Create Role</button><input [(ngModel)]="newPermissionCode" placeholder="Permission code"><input [(ngModel)]="newPermissionName" placeholder="Permission name"><button class="btn btn-secondary btn-sm" type="button" (click)="createPermission()">Create Permission</button></div>
+            <div class="access-section"><h3>Assign Roles</h3><div class="check-grid">@for (role of roles(); track role.code) {<label><input type="checkbox" [checked]="selectedRoles().has(role.name)" (change)="toggleRole(role.name)"> {{ role.name }}</label>}</div><button class="btn btn-primary btn-sm" type="button" (click)="saveRoles()">Save Roles</button></div>
             <div class="access-section"><h3>Assign Menus & Submenus</h3><div class="menu-tree">@for (menu of menus; track menu.code) {<div class="menu-item"><label><input type="checkbox" [checked]="selectedMenus().has(menu.code)" (change)="toggleMenu(menu.code)"> <app-icon [name]="menu.icon" [size]="16"></app-icon> {{ menu.title }}</label>@for (submenu of menu.submenus; track submenu.code) {<label class="submenu"><input type="checkbox" [checked]="selectedMenus().has(submenu.code)" (change)="toggleMenu(submenu.code)"> {{ submenu.title }}</label>}</div>}</div><button class="btn btn-primary btn-sm" type="button" (click)="saveMenus()">Save Menus</button></div>
-            <div class="access-section"><h3>Assign Permissions</h3><div class="permission-grid">@for (permission of permissions; track permission.code) {<label><input type="checkbox" [checked]="selectedPermissions().has(permission.code)" (change)="togglePermission(permission.code)"> {{ permission.title }}</label>}</div><button class="btn btn-primary btn-sm" type="button" (click)="savePermissions()">Save Permissions</button></div>
+            <div class="access-section"><h3>Assign Permissions</h3><div class="permission-grid">@for (permission of permissions(); track permission.code) {<label><input type="checkbox" [checked]="selectedPermissions().has(permission.code)" (change)="togglePermission(permission.code)"> {{ permission.name }}</label>}</div><button class="btn btn-primary btn-sm" type="button" (click)="savePermissions()">Save Permissions</button></div>
           </section>
         } @else {<section class="card empty-panel"><app-icon name="users" [size]="32"></app-icon><h3>Select a user</h3><p>Choose a user to manage access.</p></section>}
       </div>
@@ -58,18 +59,25 @@ export class AccessControlComponent {
   readonly selectedRoles = signal(new Set<string>());
   readonly selectedMenus = signal(new Set<string>());
   readonly selectedPermissions = signal(new Set<string>());
-  readonly roles = ['Company Admin', 'Admin', 'HR Manager', 'Employee'];
-  readonly permissions = [{ code: 'READ', title: 'Read' }, { code: 'WRITE', title: 'Write' }, { code: 'CREATE', title: 'Create' }, { code: 'UPDATE', title: 'Update' }, { code: 'DELETE', title: 'Delete' }, { code: 'APPROVE', title: 'Approve' }, { code: 'EXPORT', title: 'Export' }];
+  readonly roles = signal<Definition[]>([]);
+  readonly permissions = signal<Definition[]>([]);
+  newRoleCode = ''; newRoleName = ''; newPermissionCode = ''; newPermissionName = '';
   readonly menus = [
     { code:'DASHBOARD', title:'Dashboard', icon:'dashboard', submenus:[] }, { code:'EMPLOYEES', title:'Employees', icon:'users', submenus:[{code:'EMPLOYEES.DIRECTORY', title:'Directory'},{code:'EMPLOYEES.PROFILES', title:'Profiles'}] },
     { code:'ATTENDANCE', title:'Attendance', icon:'clock', submenus:[{code:'ATTENDANCE.PUNCH', title:'Punch In/Out'},{code:'ATTENDANCE.REPORTS', title:'Reports'}] }, { code:'LEAVES', title:'Leave Management', icon:'calendar', submenus:[{code:'LEAVES.APPLY', title:'Apply Leave'},{code:'LEAVES.APPROVALS', title:'Approvals'}] },
     { code:'PAYROLL', title:'Payroll & Payslips', icon:'dollar-sign', submenus:[{code:'PAYROLL.GENERATE', title:'Generate Payroll'},{code:'PAYROLL.PAYSLIPS', title:'Payslips'}] }, { code:'RECRUITMENT', title:'Recruitment', icon:'briefcase', submenus:[{code:'RECRUITMENT.JOBS', title:'Job Openings'},{code:'RECRUITMENT.CANDIDATES', title:'Candidates'}] }, { code:'PERFORMANCE', title:'Performance', icon:'award', submenus:[] }, { code:'SETTINGS', title:'Settings', icon:'settings', submenus:[] }
   ];
-  constructor() { this.accessApi.getUsers().subscribe({ next: users => this.users.set(users), error: () => this.toast.error('Access Control', 'Users could not be loaded.') }); }
+  constructor() {
+    this.accessApi.getUsers().subscribe({ next: users => this.users.set(users), error: () => this.toast.error('Access Control', 'Users could not be loaded.') });
+    this.accessApi.getRoles().subscribe({ next: roles => this.roles.set(roles), error: () => this.toast.error('Access Control', 'Roles could not be loaded.') });
+    this.accessApi.getPermissionDefinitions().subscribe({ next: permissions => this.permissions.set(permissions), error: () => this.toast.error('Access Control', 'Permissions could not be loaded.') });
+  }
   selectUser(user: AuthUser): void { this.selectedUser.set(user); this.selectedRoles.set(new Set(user.roles || [user.role])); this.menuApi.getUserAssignments(user.id).subscribe(menus => this.selectedMenus.set(new Set(menus))); this.accessApi.getPermissions(user.id).subscribe(items => this.selectedPermissions.set(new Set(items.map(item => item.permissionCode)))); }
   toggleRole(role: string): void { this.toggle(this.selectedRoles, role); }
   toggleMenu(code: string): void { this.toggle(this.selectedMenus, code); }
   togglePermission(code: string): void { this.toggle(this.selectedPermissions, code); }
+  createRole(): void { if (!this.newRoleCode.trim() || !this.newRoleName.trim()) return; this.accessApi.createRole(this.newRoleCode, this.newRoleName, '').subscribe(role => { this.roles.update(items => [...items, role]); this.newRoleCode = ''; this.newRoleName = ''; this.toast.success('Access Control', 'Role created successfully.'); }); }
+  createPermission(): void { if (!this.newPermissionCode.trim() || !this.newPermissionName.trim()) return; this.accessApi.createPermission(this.newPermissionCode, this.newPermissionName, '').subscribe(permission => { this.permissions.update(items => [...items, permission]); this.newPermissionCode = ''; this.newPermissionName = ''; this.toast.success('Access Control', 'Permission created successfully.'); }); }
   private toggle(target: ReturnType<typeof signal<Set<string>>>, value: string): void { const next = new Set(target()); next.has(value) ? next.delete(value) : next.add(value); target.set(next); }
   saveRoles(): void {
     const user = this.selectedUser();
