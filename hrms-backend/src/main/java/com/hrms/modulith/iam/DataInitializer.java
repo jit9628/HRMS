@@ -44,6 +44,8 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserAccountRepository userRepository;
     private final UserMenuAssignmentRepository menuAssignmentRepository;
+    private final RoleDefinitionRepository roleDefinitionRepository;
+    private final PermissionDefinitionRepository permissionDefinitionRepository;
     private final PasswordEncoder passwordEncoder;
     private final CompanyProfileRepository companyRepository;
     private final DepartmentRepository departmentRepository;
@@ -61,6 +63,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (userRepository.count() > 0) {
+            seedDefinitions();
             ensureJitendraCompanyAdmin();
             ensureDefaultMenus("superadmin@hrms.in", new String[] {"DASHBOARD", "EMPLOYEES", "ATTENDANCE", "LEAVES", "PAYROLL", "RECRUITMENT", "PERFORMANCE", "COMPANIES", "SETTINGS", "ACCESS_CONTROL"});
             ensureMenuAssignment("superadmin@hrms.in", "ACCESS_CONTROL");
@@ -69,6 +72,7 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         log.info("Seeding initial demo data for HRMS Modulith...");
+        seedDefinitions();
 
         // 1. Company Profile
         // CompanyProfile company = CompanyProfile.builder()
@@ -357,5 +361,17 @@ public class DataInitializer implements CommandLineRunner {
                         .build());
             }
         });
+    }
+
+    private void seedDefinitions() {
+        for (Role role : Role.values()) {
+            roleDefinitionRepository.findByCode(role.name()).orElseGet(() -> roleDefinitionRepository.save(RoleDefinition.builder()
+                    .code(role.name()).name(role.getDisplayName()).description("Built-in role").build()));
+        }
+        String[][] permissions = {{"READ", "Read"}, {"WRITE", "Write"}, {"CREATE", "Create"}, {"UPDATE", "Update"}, {"DELETE", "Delete"}, {"APPROVE", "Approve"}, {"EXPORT", "Export"}};
+        for (String[] permission : permissions) {
+            permissionDefinitionRepository.findByCode(permission[0]).orElseGet(() -> permissionDefinitionRepository.save(PermissionDefinition.builder()
+                    .code(permission[0]).name(permission[1]).description("Built-in permission").build()));
+        }
     }
 }

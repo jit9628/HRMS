@@ -51,6 +51,7 @@ C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\CustomUserDetailsService.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\DataInitializer.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\dto\ChangePasswordRequest.java
+C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\dto\DefinitionRequest.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\dto\LoginRequest.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\dto\LoginResponse.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\dto\MenuAssignmentRequest.java
@@ -62,7 +63,11 @@ C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\dto\UserFeaturesResponse.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\MenuAssignmentService.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\MenuService.java
+C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\PermissionDefinition.java
+C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\PermissionDefinitionRepository.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\Role.java
+C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\RoleDefinition.java
+C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\RoleDefinitionRepository.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\UserAccount.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\UserAccountRepository.java
 C:\Users\Precise\Documents\HRM\HRMS\hrms-backend\src\main\java\com\hrms\modulith\iam\UserController.java

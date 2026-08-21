@@ -6,5 +6,5 @@ import java.util.Optional;
 
 public interface UserRoleAssignmentRepository extends JpaRepository<UserRoleAssignment, String> {
     List<UserRoleAssignment> findByUserId(String userId);
-    Optional<UserRoleAssignment> findByUserIdAndRole(String userId, Role role);
+    Optional<UserRoleAssignment> findByUserIdAndRole(String userId, String role);
 }

@@ -64,11 +64,11 @@ public class MenuService {
 
     public UserFeaturesResponse buildUserFeaturesResponse(UserAccount user) {
         Role role = user.getRole();
-        Set<Role> roles = new java.util.HashSet<>();
-        roles.add(role);
+        Set<String> roleNames = new java.util.HashSet<>();
+        roleNames.add(role.name());
         roleAssignmentRepository.findByUserId(user.getId()).stream()
                 .map(UserRoleAssignment::getRole)
-                .forEach(roles::add);
+                .forEach(roleNames::add);
         List<UserFeatureDto> features = new ArrayList<>();
 
         // 1. Dashboard (All users)
@@ -138,7 +138,7 @@ public class MenuService {
                 .build());
 
         // 6. Recruitment ATS (Super Admin, Company Admin, HR Manager)
-        if (roles.stream().anyMatch(candidate -> candidate == Role.SUPER_ADMIN || candidate == Role.COMPANY_ADMIN || candidate == Role.HR_MANAGER || candidate == Role.ADMIN)) {
+        if (hasAnyRole(roleNames, "SUPER_ADMIN", "COMPANY_ADMIN", "HR_MANAGER", "ADMIN")) {
             features.add(UserFeatureDto.builder()
                     .id("feat-recruitment")
                     .code("RECRUITMENT")
@@ -167,7 +167,7 @@ public class MenuService {
                 .build());
 
         // 8. Companies & Entities (Super Admin exclusive)
-        if (roles.contains(Role.SUPER_ADMIN)) {
+        if (roleNames.contains("SUPER_ADMIN")) {
             features.add(UserFeatureDto.builder()
                     .id("feat-companies")
                     .code("COMPANIES")
@@ -182,7 +182,7 @@ public class MenuService {
         }
 
         // 9. Organization Settings (Admins only)
-        if (roles.stream().anyMatch(candidate -> candidate == Role.SUPER_ADMIN || candidate == Role.COMPANY_ADMIN || candidate == Role.ADMIN)) {
+        if (hasAnyRole(roleNames, "SUPER_ADMIN", "COMPANY_ADMIN", "ADMIN")) {
             features.add(UserFeatureDto.builder()
                     .id("feat-settings")
                     .code("SETTINGS")
@@ -196,7 +196,7 @@ public class MenuService {
                     .build());
         }
 
-        if (roles.contains(Role.SUPER_ADMIN)) {
+        if (roleNames.contains("SUPER_ADMIN")) {
             features.add(UserFeatureDto.builder()
                     .id("feat-access-control")
                     .code("ACCESS_CONTROL")
@@ -265,5 +265,9 @@ public class MenuService {
                 return java.util.Arrays.stream(value.split(" "))
                                 .map(word -> word.isEmpty() ? word : Character.toUpperCase(word.charAt(0)) + word.substring(1))
                                 .collect(Collectors.joining(" "));
+        }
+
+        private boolean hasAnyRole(Set<String> roles, String... candidates) {
+                return java.util.Arrays.stream(candidates).anyMatch(roles::contains);
         }
 }
