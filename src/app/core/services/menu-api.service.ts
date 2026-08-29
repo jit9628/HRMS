@@ -24,7 +24,7 @@ interface UserFeaturesResponse {
 @Injectable({ providedIn: 'root' })
 export class MenuApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'http://localhost:8080/api/v1';
+  private readonly API_URL = 'https://hrms-backend-her1.onrender.com/api/v1';
 
   getCurrentUserFeatures(): Observable<UserFeature[]> {
     return this.http.get<ApiResponse<UserFeaturesResponse>>(`${this.API_URL}/users/me/features`).pipe(

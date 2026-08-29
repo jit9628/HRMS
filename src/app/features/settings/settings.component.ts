@@ -447,7 +447,7 @@ export class SettingsComponent {
       color: formVal.color
     });
 
-    // Call Spring Boot backend API: POST http://localhost:8080/api/v1/departments
+    // Call Spring Boot backend API: POST https://hrms-backend-her1.onrender.com/api/v1/departments
     this.deptApi.createDepartment({
       companyId: comp.id,
       name: formVal.name,

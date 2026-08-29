@@ -18,6 +18,13 @@ import { forkJoin } from 'rxjs';
       <div class="page-header">
         <div class="header-titles"><h1>Access Control</h1><p>Assign roles, permissions, menus and submenus to users.</p></div>
       </div>
+      <section class="card catalog-panel">
+        <div class="catalog-heading"><div><h2>Roles & Permissions</h2><p>Create reusable access definitions for assignment.</p></div><app-icon name="shield" [size]="24"></app-icon></div>
+        <div class="catalog-forms">
+          <div class="catalog-form"><h3>Create Role</h3><input [(ngModel)]="newRoleCode" placeholder="Role code"><input [(ngModel)]="newRoleName" placeholder="Role name"><input [(ngModel)]="newRoleDescription" placeholder="Description"><button class="btn btn-primary btn-sm" type="button" (click)="createRole()">Create Role</button></div>
+          <div class="catalog-form"><h3>Create Permission</h3><input [(ngModel)]="newPermissionCode" placeholder="Permission code"><input [(ngModel)]="newPermissionName" placeholder="Permission name"><input [(ngModel)]="newPermissionDescription" placeholder="Description"><button class="btn btn-primary btn-sm" type="button" (click)="createPermission()">Create Permission</button></div>
+        </div>
+      </section>
       <div class="access-layout">
         <section class="card users-panel">
           <h3>Users</h3>
@@ -41,6 +48,12 @@ import { forkJoin } from 'rxjs';
   `,
   styles: [`
     .access-layout { display:grid; grid-template-columns:280px 1fr; gap:1rem; }
+    .catalog-panel { padding:1.25rem; margin-bottom:1rem; }
+    .catalog-heading { display:flex; align-items:center; justify-content:space-between; }
+    .catalog-heading p { margin-top:.25rem; color:var(--text-muted); }
+    .catalog-forms { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem; }
+    .catalog-form { display:grid; gap:.55rem; padding:1rem; border:1px solid var(--border-color); border-radius:var(--radius-md); }
+    .catalog-form input { min-height:36px; padding:.5rem .65rem; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-surface); color:var(--text-main); }
     .users-panel, .access-panel { padding:1.25rem; }
     .user-row { display:flex; width:100%; gap:.65rem; padding:.7rem; border:0; background:transparent; color:inherit; text-align:left; border-radius:var(--radius-md); cursor:pointer; }
     .user-row.active, .user-row:hover { background:var(--bg-surface-subtle); }
@@ -61,7 +74,8 @@ export class AccessControlComponent {
   readonly selectedPermissions = signal(new Set<string>());
   readonly roles = signal<Definition[]>([]);
   readonly permissions = signal<Definition[]>([]);
-  newRoleCode = ''; newRoleName = ''; newPermissionCode = ''; newPermissionName = '';
+  newRoleCode = ''; newRoleName = ''; newRoleDescription = '';
+  newPermissionCode = ''; newPermissionName = ''; newPermissionDescription = '';
   readonly menus = [
     { code:'DASHBOARD', title:'Dashboard', icon:'dashboard', submenus:[] }, { code:'EMPLOYEES', title:'Employees', icon:'users', submenus:[{code:'EMPLOYEES.DIRECTORY', title:'Directory'},{code:'EMPLOYEES.PROFILES', title:'Profiles'}] },
     { code:'ATTENDANCE', title:'Attendance', icon:'clock', submenus:[{code:'ATTENDANCE.PUNCH', title:'Punch In/Out'},{code:'ATTENDANCE.REPORTS', title:'Reports'}] }, { code:'LEAVES', title:'Leave Management', icon:'calendar', submenus:[{code:'LEAVES.APPLY', title:'Apply Leave'},{code:'LEAVES.APPROVALS', title:'Approvals'}] },
@@ -76,8 +90,8 @@ export class AccessControlComponent {
   toggleRole(role: string): void { this.toggle(this.selectedRoles, role); }
   toggleMenu(code: string): void { this.toggle(this.selectedMenus, code); }
   togglePermission(code: string): void { this.toggle(this.selectedPermissions, code); }
-  createRole(): void { if (!this.newRoleCode.trim() || !this.newRoleName.trim()) return; this.accessApi.createRole(this.newRoleCode, this.newRoleName, '').subscribe(role => { this.roles.update(items => [...items, role]); this.newRoleCode = ''; this.newRoleName = ''; this.toast.success('Access Control', 'Role created successfully.'); }); }
-  createPermission(): void { if (!this.newPermissionCode.trim() || !this.newPermissionName.trim()) return; this.accessApi.createPermission(this.newPermissionCode, this.newPermissionName, '').subscribe(permission => { this.permissions.update(items => [...items, permission]); this.newPermissionCode = ''; this.newPermissionName = ''; this.toast.success('Access Control', 'Permission created successfully.'); }); }
+  createRole(): void { if (!this.newRoleCode.trim() || !this.newRoleName.trim()) return; this.accessApi.createRole(this.newRoleCode, this.newRoleName, this.newRoleDescription).subscribe(role => { this.roles.update(items => [...items, role]); this.newRoleCode = ''; this.newRoleName = ''; this.newRoleDescription = ''; this.toast.success('Access Control', 'Role created successfully.'); }); }
+  createPermission(): void { if (!this.newPermissionCode.trim() || !this.newPermissionName.trim()) return; this.accessApi.createPermission(this.newPermissionCode, this.newPermissionName, this.newPermissionDescription).subscribe(permission => { this.permissions.update(items => [...items, permission]); this.newPermissionCode = ''; this.newPermissionName = ''; this.newPermissionDescription = ''; this.toast.success('Access Control', 'Permission created successfully.'); }); }
   private toggle(target: ReturnType<typeof signal<Set<string>>>, value: string): void { const next = new Set(target()); next.has(value) ? next.delete(value) : next.add(value); target.set(next); }
   saveRoles(): void {
     const user = this.selectedUser();

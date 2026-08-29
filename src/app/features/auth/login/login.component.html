@@ -1,0 +1,178 @@
+<div class="login-container">
+      <!-- Theme Switcher Floating Top Right -->
+      <button 
+        type="button" 
+        class="theme-float-btn" 
+        (click)="themeService.toggleTheme()"
+        [title]="'Switch to ' + (themeService.currentTheme() === 'light' ? 'Dark' : 'Light') + ' Mode'">
+        <app-icon [name]="themeService.currentTheme() === 'light' ? 'moon' : 'sun'" [size]="20"></app-icon>
+      </button>
+
+      <div class="login-wrapper">
+        <!-- Left Side: Brand Showcase -->
+        <div class="login-brand-side">
+          <div class="brand-top">
+            <div class="brand-logo">
+              <div class="logo-icon-box">
+                <app-icon name="award" [size]="28"></app-icon>
+              </div>
+              <div class="brand-title">
+                <h1>Pulse<span>HRMS</span></h1>
+                <span class="brand-badge">Multi-Company v1.0.0</span>
+              </div>
+            </div>
+            <p class="brand-tagline">Multi-tenant workforce intelligence platform with autonomous company department & employee management.</p>
+          </div>
+
+          <!-- Feature Bullets -->
+          <div class="feature-bullets">
+            <div class="feature-item">
+              <div class="feat-icon"><app-icon name="building" [size]="18"></app-icon></div>
+              <div>
+                <h4>Multi-Company Workspaces</h4>
+                <p>Each company manages its own custom departments, designations, and employees.</p>
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feat-icon"><app-icon name="users" [size]="18"></app-icon></div>
+              <div>
+                <h4>Company-Scoped Employee Directory</h4>
+                <p>Isolated staff rosters with independent attendance & payroll runs.</p>
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <div class="feat-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></div>
+              <div>
+                <h4>Compliant Payroll & Payslips</h4>
+                <p>Custom tax IDs, GSTIN calculation, and automated slips per entity.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Registered Companies Pills Preview -->
+          <!-- <div class="companies-preview-box">
+            <span class="c-title">REGISTERED CORPORATE ENTITIES ({{ companies().length }}):</span>
+            <div class="companies-chip-list">
+              @for (c of companies(); track c.id) {
+                <div class="company-chip" (click)="selectCompany(c.id)">
+                  <span class="chip-dot" [style.background]="c.brandColor || 'var(--primary-500)'"></span>
+                  <span class="chip-name">{{ c.companyName }}</span>
+                  <span class="chip-code font-mono">{{ c.code }}</span>
+                </div>
+              }
+            </div>
+          </div> -->
+
+          <!-- Security & Compliance Footer -->
+          <div class="brand-footer">
+            <span class="security-tag">
+              <app-icon name="check-circle" [size]="14"></app-icon>
+              <span>SOC-2 Type II Certified • 256-Bit TLS Multi-Tenant Isolation</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Right Side: Login Form & Quick Portals -->
+        <div class="login-form-side card">
+          <div class="form-header">
+            <h2>Sign In to Workspace</h2>
+            <p>Access your corporate portal or sign in with your enterprise credentials.</p>
+          </div>
+
+          <!-- Login Mode Tabs: Company Portals vs Role Login -->
+          <div class="login-tabs">
+            <button 
+              type="button" 
+              class="tab-btn" 
+              [class.active]="activeTab() === 'companies'"
+              (click)="activeTab.set('companies')">
+              <app-icon name="building" [size]="16"></app-icon>
+              <span>Company Portals </span>
+               <span>Company Portals ({{ companies().length }})</span>
+            </button>
+
+            <button 
+              type="button" 
+              class="tab-btn" 
+              [class.active]="activeTab() === 'roles'"
+              (click)="activeTab.set('roles')">
+              <app-icon name="users" [size]="16"></app-icon>
+              <span>Direct Roles</span>
+            </button>
+          </div>
+
+          <!-- Credentials Form -->
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
+            <div class="form-group">
+              <label> Email Address</label>
+              <div class="input-icon-wrapper">
+                <span class="input-icon"><app-icon name="mail" [size]="18"></app-icon></span>
+                <input 
+                  type="email" 
+                  class="form-control" 
+                  formControlName="email" 
+                  placeholder="admin@hrms.internal"
+                />
+              </div>
+              @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
+                <span class="form-error">Please enter a valid email address.</span>
+              }
+            </div>
+
+            <div class="form-group">
+              <div class="flex-between">
+                <label>Password</label>
+                <a href="javascript:void(0)" class="forgot-link" (click)="showForgotHint.set(true)">Forgot password?</a>
+              </div>
+              <div class="input-icon-wrapper">
+                <span class="input-icon"><app-icon name="briefcase" [size]="18"></app-icon></span>
+                <input 
+                  [type]="showPassword() ? 'text' : 'password'" 
+                  class="form-control password-input" 
+                  formControlName="password" 
+                  placeholder="••••••••"
+                />
+                <button 
+                  type="button" 
+                  class="password-toggle-btn" 
+                  (click)="toggleShowPassword()"
+                  [title]="showPassword() ? 'Hide password' : 'Show password'"
+                  [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+                  <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="18"></app-icon>
+                </button>
+              </div>
+              @if (loginForm.get('password')?.touched && loginForm.get('password')?.invalid) {
+                <span class="form-error">Password must be at least 4 characters.</span>
+              }
+            </div>
+
+            @if (showForgotHint()) {
+              <div class="forgot-hint-box">
+                <app-icon name="alert-circle" [size]="16"></app-icon>
+                <span>Please contact your administrator to reset your password.</span>
+              </div>
+            }
+
+            <div class="form-row-remember flex-between">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="rememberMe" />
+                <span>Remember this device for 30 days</span>
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-block" [disabled]="loginForm.invalid || isLoading()">
+              @if (isLoading()) {
+                <span>Authenticating...</span>
+              } @else {
+                <span>Sign In to Company Workspace</span>
+                <app-icon name="chevron-right" [size]="18"></app-icon>
+              }
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <app-toast-container></app-toast-container>
+    </div>
