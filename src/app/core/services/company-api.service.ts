@@ -7,7 +7,7 @@ import { CompanyProfile } from '../models/company.model';
 @Injectable({ providedIn: 'root' })
 export class CompanyApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'https://hrms-backend-her1.onrender.com/api/v1/companies';
+  private readonly API_URL = 'https://hrms.divijixtechnology.com/api/v1/companies';
 
   registerCompany(company: Partial<CompanyProfile>): Observable<CompanyProfile> {
     return this.http.post<ApiResponse<CompanyProfile>>(this.API_URL, company).pipe(

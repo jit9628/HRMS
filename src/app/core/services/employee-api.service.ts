@@ -7,7 +7,7 @@ import { Employee } from '../models/employee.model';
 @Injectable({ providedIn: 'root' })
 export class EmployeeApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'https://hrms-backend-her1.onrender.com/api/v1/employees';
+  private readonly API_URL = 'https://hrms.divijixtechnology.com/api/v1/employees';
 
   createEmployee(employee: Partial<Employee>): Observable<Employee> {
     return this.http.post<ApiResponse<Employee>>(this.API_URL, employee).pipe(

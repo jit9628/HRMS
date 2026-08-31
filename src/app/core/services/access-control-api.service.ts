@@ -15,7 +15,7 @@ export interface Definition { id: string; code: string; name: string; descriptio
 @Injectable({ providedIn: 'root' })
 export class AccessControlApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'https://hrms-backend-her1.onrender.com/api/v1';
+  private readonly API_URL = 'https://hrms.divijixtechnology.com/api/v1';
 
   getUsers(): Observable<AuthUser[]> {
     return this.http.get<ApiResponse<AuthUser[]>>(`${this.API_URL}/users`).pipe(map(response => response.data || []));

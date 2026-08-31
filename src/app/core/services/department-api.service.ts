@@ -26,7 +26,7 @@ export interface CreateDepartmentRequest {
 })
 export class DepartmentApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'https://hrms-backend-her1.onrender.com/api/v1/departments';
+  private readonly API_URL = 'https://hrms.divijixtechnology.com/api/v1/departments';
 
   getDepartments(companyId?: string): Observable<DepartmentDto[]> {
     const url = companyId ? `${this.API_URL}?companyId=${companyId}` : this.API_URL;

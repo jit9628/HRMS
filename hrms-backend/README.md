@@ -41,7 +41,7 @@ cd hrms-backend
 mvn spring-boot:run
 ```
 
-The server will start on **`https://hrms-backend-her1.onrender.com`**.
+The server will start on **`https://hrms.divijixtechnology.com`**.
 
 ---
 
@@ -58,14 +58,14 @@ The server will start on **`https://hrms-backend-her1.onrender.com`**.
 
 ## 📖 API Documentation & Tools
 
-- **Swagger UI Interactive Documentation**: [https://hrms-backend-her1.onrender.com/swagger-ui.html](https://hrms-backend-her1.onrender.com/swagger-ui.html)
-- **OpenAPI JSON Spec**: [https://hrms-backend-her1.onrender.com/api-docs](https://hrms-backend-her1.onrender.com/api-docs)
-- **H2 Database Web Console**: [https://hrms-backend-her1.onrender.com/h2-console](https://hrms-backend-her1.onrender.com/h2-console)
+- **Swagger UI Interactive Documentation**: [https://hrms.divijixtechnology.com/swagger-ui.html](https://hrms.divijixtechnology.com/swagger-ui.html)
+- **OpenAPI JSON Spec**: [https://hrms.divijixtechnology.com/api-docs](https://hrms.divijixtechnology.com/api-docs)
+- **H2 Database Web Console**: [https://hrms.divijixtechnology.com/h2-console](https://hrms.divijixtechnology.com/h2-console)
   - JDBC URL: `jdbc:h2:mem:hrmsdb`
   - Username: `sa`
   - Password: *(leave blank)*
-- **Spring Boot Actuator Health**: [https://hrms-backend-her1.onrender.com/actuator/health](https://hrms-backend-her1.onrender.com/actuator/health)
-- **Spring Modulith Actuator Endpoint**: [https://hrms-backend-her1.onrender.com/actuator/modulith](https://hrms-backend-her1.onrender.com/actuator/modulith)
+- **Spring Boot Actuator Health**: [https://hrms.divijixtechnology.com/actuator/health](https://hrms.divijixtechnology.com/actuator/health)
+- **Spring Modulith Actuator Endpoint**: [https://hrms.divijixtechnology.com/actuator/modulith](https://hrms.divijixtechnology.com/actuator/modulith)
 
 ---
 
