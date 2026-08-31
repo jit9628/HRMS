@@ -253,7 +253,7 @@ We will create a standalone backend maven project directory in `hrms-backend/`:
    mvn spring-boot:run -f hrms-backend/pom.xml
    ```
 2. **Swagger UI Validation**:
-   - Access `http://localhost:8080/swagger-ui.html` and verify all REST endpoints are documented with schemas.
+   - Access `https://hrms.divijixtechnology.com/swagger-ui.html` and verify all REST endpoints are documented with schemas.
 3. **API Smoke Test via cURL / PowerShell**:
    - Login: `POST /api/v1/auth/login` (admin credentials) -> obtain JWT.
    - Query Employees: `GET /api/v1/employees` with `Authorization: Bearer <token>`.

@@ -200,7 +200,7 @@ public class MenuService {
             features.add(UserFeatureDto.builder()
                     .id("feat-access-control")
                     .code("ACCESS_CONTROL")
-                    .title("Access Control")
+                    .title("Roles & Permissions")
                     .path("/access-control")
                     .icon("shield")
                     .category("SECURITY")

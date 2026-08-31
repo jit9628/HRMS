@@ -14,7 +14,7 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly toast = inject(NotificationService);
   private readonly AUTH_KEY = 'pulse_hrms_auth_user';
-  private readonly API_AUTH_URL = 'http://localhost:8080/api/v1/auth';
+  private readonly API_AUTH_URL = 'https://hrms.divijixtechnology.com/api/v1/auth';
 
   readonly currentUser = signal<AuthUser | null>(this.loadStoredUser());
   readonly isAuthenticated = computed(() => !!this.currentUser());
@@ -33,7 +33,7 @@ export class AuthService {
   }
 
   /**
-   * Real Backend API Login Call to POST http://localhost:8080/api/v1/auth/login
+   * Real Backend API Login Call to POST https://hrms.divijixtechnology.com/api/v1/auth/login
    */
   login(credentials: LoginCredentials): Observable<AuthUser> {
     const payload = {
@@ -74,7 +74,7 @@ export class AuthService {
         if (error.error?.message) {
           errorMsg = error.error.message;
         } else if (error.status === 0) {
-          errorMsg = 'Could not connect to backend server at http://localhost:8080. Please ensure the Spring Boot application is running.';
+          errorMsg = 'Could not connect to backend server at https://hrms.divijixtechnology.com. Please ensure the Spring Boot application is running.';
         }
         this.toast.error('Authentication Failed', errorMsg);
         return throwError(() => new Error(errorMsg));
@@ -97,7 +97,7 @@ export class AuthService {
   }
 
   assignRoles(userId: string, roles: string[]): Observable<AuthUser> {
-    return this.http.put<{ data: AuthUser }>(`http://localhost:8080/api/v1/users/${userId}/role`, { roles }).pipe(
+    return this.http.put<{ data: AuthUser }>(`https://hrms.divijixtechnology.com/api/v1/users/${userId}/role`, { roles }).pipe(
       map(response => response.data)
     );
   }
