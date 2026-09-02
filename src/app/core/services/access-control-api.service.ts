@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { ApiResponse, AuthUser } from '../models/auth.model';
+import { environment } from '../../../environments/environment.development';
 
 export interface UserPermissionAssignment {
   id: string;
@@ -15,7 +16,7 @@ export interface Definition { id: string; code: string; name: string; descriptio
 @Injectable({ providedIn: 'root' })
 export class AccessControlApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'https://hrms.divijixtechnology.com/api/v1';
+  private readonly API_URL = environment.API_URL;
 
   getUsers(): Observable<AuthUser[]> {
     return this.http.get<ApiResponse<AuthUser[]>>(`${this.API_URL}/users`).pipe(map(response => response.data || []));

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { authGuard } from './core/guards/auth.guard';
+import { superAdminGuard } from './core/guards/super-admin.guard';
 
 export const routes: Routes = [
   {
@@ -58,8 +59,22 @@ export const routes: Routes = [
         loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
       },
       {
-        path: 'access-control',
-        loadComponent: () => import('./features/access-control/access-control.component').then(m => m.AccessControlComponent)
+        path: 'manage-menu',
+        loadComponent: () => import('./features/manage-menu/manage-menu.component').then(m => m.ManageMenuComponent)
+      },
+      {
+        path: 'manage-menu/add',
+        loadComponent: () => import('./features/manage-menu/manage-menu.component').then(m => m.ManageMenuComponent)
+      },
+      {
+        path: 'roles',
+        canActivate: [superAdminGuard],
+        loadComponent: () => import('./features/roles/role-management.component').then(m => m.RoleManagementComponent)
+      },
+      {
+        path: 'roles/create',
+        canActivate: [superAdminGuard],
+        loadComponent: () => import('./features/roles/role-management.component').then(m => m.RoleManagementComponent)
       }
     ]
   },

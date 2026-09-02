@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HrmsDataService } from '../../core/services/hrms-data.service';
@@ -370,9 +370,7 @@ export class SettingsComponent {
   private readonly fb = inject(FormBuilder);
 
   readonly companies = this.hrmsData.companies;
-  readonly selectedCompanyId = signal<string>(
-    this.authService.currentUser()?.companyId || this.hrmsData.companies()[0]?.id || 'CMP-101'
-  );
+  readonly selectedCompanyId = signal<string>(this.getInitialCompanyId());
 
   readonly isCompanyAdmin = computed(() => {
     const r = this.authService.currentUser()?.role;
@@ -396,6 +394,19 @@ export class SettingsComponent {
   constructor() {
     this.syncCompanyModel();
     this.initDeptForm();
+    effect(() => {
+      const loadedCompanies = this.companies();
+      if (loadedCompanies.length && !loadedCompanies.some(company => company.id === this.selectedCompanyId())) {
+        this.selectedCompanyId.set(loadedCompanies.find(company => company.isDefault)?.id || loadedCompanies[0].id);
+        this.syncCompanyModel();
+      }
+    });
+  }
+
+  private getInitialCompanyId(): string {
+    const userCompanyId = this.authService.currentUser()?.companyId;
+    const matchingCompany = this.hrmsData.companies().find(company => company.id === userCompanyId);
+    return matchingCompany?.id || this.hrmsData.activeCompany()?.id || 'CMP-101';
   }
 
   private syncCompanyModel(): void {
@@ -447,7 +458,7 @@ export class SettingsComponent {
       color: formVal.color
     });
 
-    // Call Spring Boot backend API: POST https://hrms.divijixtechnology.com/api/v1/departments
+    // Call Spring Boot backend API: POST http://localhost:8080/api/v1/departments
     this.deptApi.createDepartment({
       companyId: comp.id,
       name: formVal.name,

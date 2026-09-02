@@ -1,4 +1,5 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Employee, Department, Designation } from '../models/employee.model';
 import { AttendanceRecord, DailyPunchState } from '../models/attendance.model';
 import { LeaveRequest, LeaveBalance, Holiday } from '../models/leave.model';
@@ -6,13 +7,18 @@ import { Payslip } from '../models/payroll.model';
 import { JobPosting, Candidate } from '../models/recruitment.model';
 import { Goal, AppraisalReview } from '../models/performance.model';
 import { CompanyProfile, Announcement } from '../models/company.model';
+import { ApiResponse } from '../models/auth.model';
+import { EmployeeApiService } from './employee-api.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class HrmsDataService {
+  private readonly http = inject(HttpClient);
+  private readonly employeeApi = inject(EmployeeApiService);
+  private readonly COMPANIES_API_URL = 'http://localhost:8080/api/v1/companies';
+
   // Local storage keys
-  private readonly EMPLOYEES_KEY = 'pulse_hrms_employees';
   private readonly ATTENDANCE_KEY = 'pulse_hrms_attendance';
   private readonly LEAVES_KEY = 'pulse_hrms_leaves';
   private readonly PAYROLL_KEY = 'pulse_hrms_payroll';
@@ -20,12 +26,11 @@ export class HrmsDataService {
   private readonly CANDIDATES_KEY = 'pulse_hrms_candidates';
   private readonly GOALS_KEY = 'pulse_hrms_goals';
   private readonly PUNCH_KEY = 'pulse_hrms_punch_state';
-  private readonly COMPANIES_KEY = 'pulse_hrms_companies';
   private readonly DEPARTMENTS_KEY = 'pulse_hrms_departments';
 
   // Signals
-  readonly companies = signal<CompanyProfile[]>(this.loadInitialCompanies());
-  readonly employees = signal<Employee[]>(this.loadInitialEmployees());
+  readonly companies = signal<CompanyProfile[]>([]);
+  readonly employees = signal<Employee[]>([]);
   readonly departments = signal<Department[]>(this.loadInitialDepartments());
   readonly designations = signal<Designation[]>(this.getInitialDesignations());
   readonly attendanceRecords = signal<AttendanceRecord[]>(this.loadInitialAttendance());
@@ -36,7 +41,7 @@ export class HrmsDataService {
   readonly candidates = signal<Candidate[]>(this.loadInitialCandidates());
   readonly goals = signal<Goal[]>(this.loadInitialGoals());
   readonly announcements = signal<Announcement[]>(this.getInitialAnnouncements());
-  readonly companyProfile = signal<CompanyProfile>(this.getInitialCompanyProfile());
+  readonly companyProfile = signal<CompanyProfile | undefined>(undefined);
 
   // Punch in/out state for current user
   readonly punchState = signal<DailyPunchState>(this.loadInitialPunchState());
@@ -46,7 +51,7 @@ export class HrmsDataService {
   readonly totalEmployees = computed(() => this.employees().length);
   readonly activeEmployeesCount = computed(() => this.employees().filter(e => e.status === 'Active').length);
   readonly onLeaveEmployeesCount = computed(() => this.employees().filter(e => e.status === 'On Leave').length);
-  
+
   readonly todayAttendance = computed(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return this.attendanceRecords().filter(a => a.date === todayStr);
@@ -69,11 +74,14 @@ export class HrmsDataService {
   });
 
   constructor() {
+    this.loadCompaniesFromDatabase();
+    this.loadEmployeesFromDatabase();
+
     // Sync to local storage on changes
     effect(() => {
       if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem(this.COMPANIES_KEY, JSON.stringify(this.companies()));
-        localStorage.setItem(this.EMPLOYEES_KEY, JSON.stringify(this.employees()));
+        localStorage.removeItem('pulse_hrms_companies');
+        localStorage.removeItem('pulse_hrms_employees');
         localStorage.setItem(this.DEPARTMENTS_KEY, JSON.stringify(this.departments()));
         localStorage.setItem(this.ATTENDANCE_KEY, JSON.stringify(this.attendanceRecords()));
         localStorage.setItem(this.LEAVES_KEY, JSON.stringify(this.leaveRequests()));
@@ -84,6 +92,34 @@ export class HrmsDataService {
         localStorage.setItem(this.PUNCH_KEY, JSON.stringify(this.punchState()));
       }
     });
+  }
+
+  private loadCompaniesFromDatabase(): void {
+    this.http.get<ApiResponse<CompanyProfile[]>>(this.COMPANIES_API_URL).subscribe({
+      next: response => this.companies.set(response.data || []),
+      error: error => {
+        console.error('Unable to load companies from database:', error);
+        this.companies.set([]);
+      }
+    });
+  }
+
+  private loadEmployeesFromDatabase(): void {
+    this.employeeApi.getEmployees().subscribe({
+      next: employees => this.employees.set(employees),
+      error: error => {
+        console.error('Unable to load employees from database:', error);
+        this.employees.set([]);
+      }
+    });
+  }
+
+  setCompanies(companies: CompanyProfile[]): void {
+    this.companies.set(companies);
+  }
+
+  setEmployees(employees: Employee[]): void {
+    this.employees.set(employees);
   }
 
   // --- Department Actions ---
@@ -339,12 +375,6 @@ export class HrmsDataService {
 
   // --- Seed Data Loaders ---
   private loadInitialEmployees(): Employee[] {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(this.EMPLOYEES_KEY);
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-      }
-    }
     return [
       {
         id: 'EMP-1001',
@@ -588,18 +618,7 @@ export class HrmsDataService {
       }
     }
     const today = new Date().toISOString().split('T')[0];
-    return [
-      { id: 'ATT-1', employeeId: 'EMP-1001', employeeName: 'Jitendra Shukla', date: today, clockIn: '09:12:00', clockOut: '18:15:00', workHours: 9.0, status: 'Present' },
-      { id: 'ATT-2', employeeId: 'EMP-1002', employeeName: 'Ananya Sharma', date: today, clockIn: '09:25:00', clockOut: '18:00:00', workHours: 8.5, status: 'Present' },
-      { id: 'ATT-3', employeeId: 'EMP-1003', employeeName: 'Vikram Patel', date: today, clockIn: '09:48:00', clockOut: '18:45:00', workHours: 8.9, status: 'Late', notes: 'Traffic delay on Outer Ring Road' },
-      { id: 'ATT-4', employeeId: 'EMP-1004', employeeName: 'Priya Nair', date: today, clockIn: '09:05:00', clockOut: '17:35:00', workHours: 8.5, status: 'Present' },
-      { id: 'ATT-5', employeeId: 'EMP-1005', employeeName: 'Rohan Deshmukh', date: today, clockIn: '-', clockOut: '-', workHours: 0, status: 'On Leave', notes: 'Approved Vacation' },
-      { id: 'ATT-6', employeeId: 'EMP-1006', employeeName: 'Sneha Reddy', date: today, clockIn: '09:15:00', clockOut: '18:10:00', workHours: 8.9, status: 'Present' },
-      { id: 'ATT-7', employeeId: 'EMP-1007', employeeName: 'Arjun Kapoor', date: today, clockIn: '09:00:00', clockOut: '18:00:00', workHours: 9.0, status: 'Present' },
-      { id: 'ATT-8', employeeId: 'EMP-1008', employeeName: 'Meera Iyer', date: today, clockIn: '09:20:00', clockOut: '18:30:00', workHours: 9.1, status: 'Present' },
-      { id: 'ATT-9', employeeId: 'EMP-1009', employeeName: 'Karan Mehta', date: today, clockIn: '09:10:00', clockOut: '17:50:00', workHours: 8.6, status: 'Present' },
-      { id: 'ATT-10', employeeId: 'EMP-1010', employeeName: 'Divya Choudhary', date: today, clockIn: '09:35:00', clockOut: '18:05:00', workHours: 8.5, status: 'Late' }
-    ];
+    return [];
   }
 
   private loadInitialLeaves(): LeaveRequest[] {
@@ -609,62 +628,7 @@ export class HrmsDataService {
         try { return JSON.parse(saved); } catch (e) { /* fallback */ }
       }
     }
-    return [
-      {
-        id: 'LV-101',
-        employeeId: 'EMP-1005',
-        employeeName: 'Rohan Deshmukh',
-        department: 'Engineering',
-        leaveType: 'Paid Leave',
-        startDate: '2026-08-18',
-        endDate: '2026-08-22',
-        totalDays: 5,
-        reason: 'Annual family vacation to Himachal Pradesh.',
-        status: 'Approved',
-        appliedOn: '2026-08-10',
-        approverComments: 'Approved. Enjoy your time off!'
-      },
-      {
-        id: 'LV-102',
-        employeeId: 'EMP-1003',
-        employeeName: 'Vikram Patel',
-        department: 'Engineering',
-        leaveType: 'Casual Leave',
-        startDate: '2026-08-25',
-        endDate: '2026-08-26',
-        totalDays: 2,
-        reason: 'Personal family function.',
-        status: 'Pending',
-        appliedOn: '2026-08-17'
-      },
-      {
-        id: 'LV-103',
-        employeeId: 'EMP-1008',
-        employeeName: 'Meera Iyer',
-        department: 'Engineering',
-        leaveType: 'Sick Leave',
-        startDate: '2026-08-14',
-        endDate: '2026-08-15',
-        totalDays: 2,
-        reason: 'Viral fever and medical rest.',
-        status: 'Approved',
-        appliedOn: '2026-08-14',
-        approverComments: 'Get well soon.'
-      },
-      {
-        id: 'LV-104',
-        employeeId: 'EMP-1007',
-        employeeName: 'Arjun Kapoor',
-        department: 'Sales & Marketing',
-        leaveType: 'Casual Leave',
-        startDate: '2026-09-02',
-        endDate: '2026-09-03',
-        totalDays: 2,
-        reason: 'Attending sibling wedding ceremony.',
-        status: 'Pending',
-        appliedOn: '2026-08-18'
-      }
-    ];
+    return [];
   }
 
   private getInitialHolidays(): Holiday[] {
@@ -1006,12 +970,6 @@ export class HrmsDataService {
   }
 
   private loadInitialCompanies(): CompanyProfile[] {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(this.COMPANIES_KEY);
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) { /* fallback */ }
-      }
-    }
     return [
       {
         id: 'CMP-101',

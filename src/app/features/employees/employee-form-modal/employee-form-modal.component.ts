@@ -2,13 +2,12 @@ import { Component, input, output, inject, OnInit, OnChanges, SimpleChanges, com
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ModalComponent } from '../../../shared/components/modal/modal.component';
-import { Employee, Department } from '../../../core/models/employee.model';
+import { Employee, EmploymentType, EmployeeStatus, Department } from '../../../core/models/employee.model';
 import { HrmsDataService } from '../../../core/services/hrms-data.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { CompanyProfile } from '../../../core/models/company.model';
 import { EmployeeApiService } from '../../../core/services/employee-api.service';
-import { MenuApiService } from '../../../core/services/menu-api.service';
-import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-employee-form-modal',
@@ -29,7 +28,7 @@ import { forkJoin } from 'rxjs';
             class="form-control company-highlight" 
             formControlName="companyId"
             (change)="onCompanyChange()">
-            @for (c of visibleCompanies(); track c.id) {
+            @for (c of companies(); track c.id) {
               <option [value]="c.id">{{ c.companyName }} ({{ c.code }}) - {{ c.city }}</option>
             }
           </select>
@@ -127,33 +126,6 @@ import { forkJoin } from 'rxjs';
             <label>Office Work Location</label>
             <input type="text" class="form-control" formControlName="location" placeholder="e.g. Bengaluru, India" />
           </div>
-
-          @if (!isEditing()) {
-            <div class="registration-admin-box">
-              <h3>Employee Login & Access</h3>
-              <div class="grid-3">
-                <div class="form-group">
-                  <label>Login Password *</label>
-                  <input type="password" class="form-control" formControlName="loginPassword" placeholder="Minimum 6 characters" />
-                </div>
-                <div class="form-group">
-                  <label>Role *</label>
-                  <select class="form-control" formControlName="assignedRole">
-                    <option value="Employee">Employee</option>
-                    <option value="HR Manager">HR Manager</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Assigned Menus</label>
-                  <div class="menu-checks">
-                    @for (menu of assignableMenus; track menu.code) {
-                      <label><input type="checkbox" [checked]="selectedMenus.has(menu.code)" (change)="toggleMenu(menu.code)" /> {{ menu.title }}</label>
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-          }
         </div>
       </form>
 
@@ -179,10 +151,6 @@ import { forkJoin } from 'rxjs';
     }
     .text-warning { color: var(--warning-600); }
     .font-xs { font-size: 0.75rem; }
-    .registration-admin-box { margin-top: 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
-    .registration-admin-box h3 { margin-bottom: 0.75rem; }
-    .menu-checks { display: flex; flex-wrap: wrap; gap: 0.35rem 0.75rem; max-height: 100px; overflow-y: auto; }
-    .menu-checks label { font-size: 0.75rem; white-space: nowrap; }
   `]
 })
 export class EmployeeFormModalComponent implements OnInit, OnChanges {
@@ -197,16 +165,8 @@ export class EmployeeFormModalComponent implements OnInit, OnChanges {
   readonly authService = inject(AuthService);
   private readonly toast = inject(NotificationService);
   private readonly employeeApi = inject(EmployeeApiService);
-  private readonly menuApi = inject(MenuApiService);
 
   readonly companies = this.hrmsData.companies;
-  readonly visibleCompanies = computed(() => {
-    const user = this.authService.currentUser();
-    if (user?.role === 'Company Admin') {
-      return this.companies().filter(company => company.id === user.companyId);
-    }
-    return this.companies();
-  });
   readonly departments = this.hrmsData.departments;
   readonly selectedCompanyId = signal<string>('CMP-101');
 
@@ -216,12 +176,6 @@ export class EmployeeFormModalComponent implements OnInit, OnChanges {
   });
 
   empForm!: FormGroup;
-  readonly assignableMenus = [
-    { code: 'DASHBOARD', title: 'Dashboard' }, { code: 'ATTENDANCE', title: 'Attendance' },
-    { code: 'LEAVES', title: 'Leaves' }, { code: 'PAYROLL', title: 'Payroll' },
-    { code: 'PERFORMANCE', title: 'Performance' }, { code: 'EMPLOYEES', title: 'Employees' }
-  ];
-  readonly selectedMenus = new Set<string>(['DASHBOARD', 'ATTENDANCE', 'LEAVES', 'PAYROLL', 'PERFORMANCE']);
 
   isEditing(): boolean {
     return !!this.employeeToEdit();
@@ -270,8 +224,6 @@ export class EmployeeFormModalComponent implements OnInit, OnChanges {
       salary: [emp?.salary || 100000, [Validators.required, Validators.min(1000)]],
       joinDate: [emp?.joinDate || new Date().toISOString().split('T')[0], Validators.required],
       location: [emp?.location || 'Bengaluru, India', Validators.required]
-      ,loginPassword: ['', [Validators.required, Validators.minLength(6)]]
-      ,assignedRole: ['Employee', Validators.required]
     });
   }
 
@@ -300,45 +252,24 @@ export class EmployeeFormModalComponent implements OnInit, OnChanges {
       this.toast.success('Profile Updated', `${payload.firstName} ${payload.lastName}'s records have been updated.`);
       this.saved.emit({ ...this.employeeToEdit()!, ...payload });
     } else {
-      const employeeCode = 'EMP' + (this.hrmsData.employees().length + 1).toString().padStart(3, '0');
-      const created = this.hrmsData.addEmployee({
+      const employeeRequest = {
         ...payload,
-        employeeCode
-      });
-      this.employeeApi.createEmployee({ ...payload, employeeCode }).subscribe({
-        next: employee => {
-          this.authService.registerCredentials({
-            name: `${employee.firstName} ${employee.lastName}`,
-            email: employee.email,
-            password: formVal.loginPassword,
-            companyId: employee.companyId,
-            companyName: employee.companyName
-          }).subscribe({
-            next: credentials => {
-              this.authService.assignRoles(credentials.data.id, [formVal.assignedRole]).subscribe({
-                next: () => forkJoin([...this.selectedMenus].map(code => this.menuApi.assignMenu(credentials.data.id, code))).subscribe({
-                  next: () => {
-                    this.toast.success('Employee Onboarded', `${employee.firstName} ${employee.lastName} created with role and menus.`);
-                    this.saved.emit({ ...created, ...employee });
-                    this.close.emit();
-                  },
-                  error: () => this.toast.error('Menu Assignment Failed', 'Employee and role were created, but menus could not be assigned.')
-                }),
-                error: error => this.toast.error('Role Assignment Failed', error?.error?.message || 'Employee credentials were created but role assignment failed.')
-              });
-            },
-            error: error => this.toast.error('Credentials Failed', error?.error?.message || 'Employee was created but login credentials failed.')
-          });
+        employeeCode: 'EMP' + (this.hrmsData.employees().length + 1).toString().padStart(3, '0')
+      };
+      this.employeeApi.createEmployee(employeeRequest).subscribe({
+        next: created => {
+          this.hrmsData.setEmployees([created, ...this.hrmsData.employees()]);
+          this.toast.success('Employee Onboarded', `${created.firstName} ${created.lastName} added to ${comp.companyName}.`);
+          this.saved.emit(created);
+          this.close.emit();
         },
-        error: error => this.toast.error('Employee Creation Failed', error?.error?.message || 'Employee could not be created.')
+        error: error => {
+          console.error('Employee creation failed:', error);
+          this.toast.error('Employee Onboarding Failed', error?.error?.message || 'Employee was not saved to the database.');
+        }
       });
       return;
     }
     this.close.emit();
-  }
-
-  toggleMenu(code: string): void {
-    if (this.selectedMenus.has(code)) this.selectedMenus.delete(code);
-    else this.selectedMenus.add(code);
   }
 }
