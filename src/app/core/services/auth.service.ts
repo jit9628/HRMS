@@ -1,10 +1,61 @@
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, throwError, map } from 'rxjs';
+import { Observable, map, of, catchError, throwError } from 'rxjs';
 import { AuthUser, UserRole, ApiResponse, LoginResponseData, LoginCredentials } from '../models/auth.model';
 import { CompanyProfile } from '../models/company.model';
 import { NotificationService } from './notification.service';
+
+export const DEFAULT_DEMO_USERS: Record<string, AuthUser> = {
+  'Super Admin': {
+    id: 'EMP-1001',
+    name: 'Jitendra Shukla',
+    email: 'admin@hrms.internal',
+    role: 'Super Admin',
+    designation: 'Platform Administrator',
+    department: 'Executive Administration',
+    avatarInitials: 'JS',
+    token: 'jwt-token-superadmin-2026',
+    companyId: 'COMP-001',
+    companyName: 'Acme Technologies Inc.'
+  },
+  'Company Admin': {
+    id: 'EMP-1002',
+    name: 'Jitendra Shukla',
+    email: 'jitendra@hrms.internal',
+    role: 'Company Admin',
+    designation: 'Principal Architect',
+    department: 'Engineering',
+    avatarInitials: 'JS',
+    token: 'jwt-token-companyadmin-jitendra-2026',
+    companyId: 'COMP-001',
+    companyName: 'Acme Technologies Inc.'
+  },
+  'HR Manager': {
+    id: 'EMP-1003',
+    name: 'Sophia Loren',
+    email: 'hr@hrms.internal',
+    role: 'HR Manager',
+    designation: 'VP of People & Culture',
+    department: 'Human Resources',
+    avatarInitials: 'SL',
+    token: 'jwt-token-hr-sophia-2026',
+    companyId: 'COMP-001',
+    companyName: 'Acme Technologies Inc.'
+  },
+  'Employee': {
+    id: 'EMP-1004',
+    name: 'Alex Rivera',
+    email: 'alex@hrms.internal',
+    role: 'Employee',
+    designation: 'Senior Fullstack Engineer',
+    department: 'Engineering',
+    avatarInitials: 'AR',
+    token: 'jwt-token-emp-alex-2026',
+    companyId: 'COMP-001',
+    companyName: 'Acme Technologies Inc.'
+  }
+};
 
 @Injectable({
   providedIn: 'root'
@@ -14,7 +65,10 @@ export class AuthService {
   private readonly router = inject(Router);
   private readonly toast = inject(NotificationService);
   private readonly AUTH_KEY = 'pulse_hrms_auth_user';
-  private readonly API_AUTH_URL = 'https://hrms.divijixtechnology.com/api/v1/auth';
+  private readonly API_AUTH_URL = 'http://localhost:8080/api/v1/auth';
+
+  // Demo user profiles
+  readonly demoUsers: Record<string, AuthUser> = DEFAULT_DEMO_USERS;
 
   readonly currentUser = signal<AuthUser | null>(this.loadStoredUser());
   readonly isAuthenticated = computed(() => !!this.currentUser());
@@ -33,7 +87,7 @@ export class AuthService {
   }
 
   /**
-   * Real Backend API Login Call to POST https://hrms.divijixtechnology.com/api/v1/auth/login
+   * Real Backend API Login Call to POST http://localhost:8080/api/v1/auth/login
    */
   login(credentials: LoginCredentials): Observable<AuthUser> {
     const payload = {
@@ -54,8 +108,7 @@ export class AuthService {
           id: u.id || 'USER-' + Date.now(),
           name: u.name,
           email: u.email,
-          role: (u.role as UserRole) || 'Employee',
-          roles: (u.roles || [u.role]).map(role => role as UserRole),
+          role: (u.role as UserRole) || 'Super Admin',
           designation: u.designation || 'Staff',
           department: u.department || 'Operations',
           avatarInitials: u.avatarInitials || u.name.substring(0, 2).toUpperCase(),
@@ -74,7 +127,7 @@ export class AuthService {
         if (error.error?.message) {
           errorMsg = error.error.message;
         } else if (error.status === 0) {
-          errorMsg = 'Could not connect to backend server at https://hrms.divijixtechnology.com. Please ensure the Spring Boot application is running.';
+          errorMsg = 'Could not connect to backend server at http://localhost:8080. Please ensure the Spring Boot application is running.';
         }
         this.toast.error('Authentication Failed', errorMsg);
         return throwError(() => new Error(errorMsg));
@@ -82,24 +135,84 @@ export class AuthService {
     );
   }
 
-  registerCredentials(credentials: {
+  /**
+   * Create / Register a Super Admin User Account
+   */
+  registerSuperAdmin(data: {
     name: string;
     email: string;
     password: string;
-    companyId: string;
-    companyName: string;
-  }): Observable<{ data: AuthUser }> {
-    return this.http.post<{ data: AuthUser }>(`${this.API_AUTH_URL}/register-credentials`, {
-      ...credentials,
-      designation: 'Company User',
-      department: 'Administration'
-    });
+    designation?: string;
+    department?: string;
+    companyName?: string;
+  }): Observable<AuthUser> {
+    const payload = {
+      name: data.name.trim(),
+      email: data.email.trim(),
+      password: data.password,
+      role: 'Super Admin',
+      designation: data.designation || 'Platform Administrator',
+      department: data.department || 'Executive Administration',
+      companyName: data.companyName || 'Acme Technologies Inc.'
+    };
+
+    return this.http.post<ApiResponse<LoginResponseData>>(`${this.API_AUTH_URL}/register`, payload).pipe(
+      map(response => {
+        const u = response.data?.user;
+        const authUser: AuthUser = {
+          id: u?.id || 'ADM-' + Date.now(),
+          name: u?.name || payload.name,
+          email: u?.email || payload.email,
+          role: 'Super Admin',
+          designation: u?.designation || payload.designation,
+          department: u?.department || payload.department,
+          avatarInitials: (u?.name || payload.name).substring(0, 2).toUpperCase(),
+          token: response.data?.token || 'jwt-token-superadmin-' + Date.now(),
+          companyId: u?.companyId || 'COMP-001',
+          companyName: u?.companyName || payload.companyName
+        };
+
+        this.currentUser.set(authUser);
+        this.toast.success(`Super Admin Created`, `Account registered for ${authUser.name}.`);
+        return authUser;
+      }),
+      catchError((error: HttpErrorResponse) => {
+        let errorMsg = 'Failed to register Super Admin on database';
+        if (error.error?.message) {
+          errorMsg = error.error.message;
+        }
+        this.toast.error('Registration Failed', errorMsg);
+        return throwError(() => new Error(errorMsg));
+      })
+    );
   }
 
-  assignRoles(userId: string, roles: string[]): Observable<AuthUser> {
-    return this.http.put<{ data: AuthUser }>(`https://hrms.divijixtechnology.com/api/v1/users/${userId}/role`, { roles }).pipe(
-      map(response => response.data)
-    );
+  quickLogin(role: string): void {
+    const user = this.demoUsers[role] || this.demoUsers['Super Admin'];
+    if (user) {
+      this.currentUser.set(user);
+      this.toast.success(`Demo Access Granted`, `Logged in as ${user.name} (${user.companyName}).`);
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
+  quickCompanyLogin(company: CompanyProfile): void {
+    const user: AuthUser = {
+      id: 'ADM-' + company.code,
+      name: `${company.companyName} Admin`,
+      email: company.email,
+      role: 'Company Admin',
+      designation: 'Enterprise Corporate Administrator',
+      department: 'Executive Administration',
+      avatarInitials: company.companyName.substring(0, 2).toUpperCase(),
+      token: 'jwt-token-company-' + company.code + '-' + Date.now(),
+      companyId: company.id,
+      companyName: company.companyName
+    };
+
+    this.currentUser.set(user);
+    this.toast.success(`Company Portal Access`, `Logged in as Administrator for ${company.companyName}.`);
+    this.router.navigate(['/dashboard']);
   }
 
   switchCompany(company: CompanyProfile): void {
@@ -118,6 +231,17 @@ export class AuthService {
   logout(): void {
     const user = this.currentUser();
     this.currentUser.set(null);
+
+    // Completely clear all localStorage and sessionStorage keys
+    if (typeof window !== 'undefined') {
+      if (window.localStorage) {
+        window.localStorage.clear();
+      }
+      if (window.sessionStorage) {
+        window.sessionStorage.clear();
+      }
+    }
+
     if (user) {
       this.toast.info('Signed Out', `${user.name} has been logged out.`);
     }

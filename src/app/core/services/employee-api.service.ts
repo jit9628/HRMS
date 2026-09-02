@@ -4,12 +4,20 @@ import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../models/auth.model';
 import { Employee } from '../models/employee.model';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root'
+})
 export class EmployeeApiService {
   private readonly http = inject(HttpClient);
-  private readonly API_URL = 'https://hrms.divijixtechnology.com/api/v1/employees';
+  private readonly API_URL = 'http://localhost:8080/api/v1/employees';
 
-  createEmployee(employee: Partial<Employee>): Observable<Employee> {
+  getEmployees(): Observable<Employee[]> {
+    return this.http.get<ApiResponse<Employee[]>>(`${this.API_URL}/all`).pipe(
+      map(response => response.data || [])
+    );
+  }
+
+  createEmployee(employee: Omit<Employee, 'id'>): Observable<Employee> {
     return this.http.post<ApiResponse<Employee>>(this.API_URL, employee).pipe(
       map(response => response.data)
     );

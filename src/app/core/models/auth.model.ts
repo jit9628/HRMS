@@ -5,7 +5,6 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
-  roles?: UserRole[];
   designation: string;
   department: string;
   avatarInitials: string;
@@ -36,7 +35,6 @@ export interface LoginResponseData {
     name: string;
     email: string;
     role: string;
-    roles?: string[];
     designation: string;
     department: string;
     avatarInitials: string;

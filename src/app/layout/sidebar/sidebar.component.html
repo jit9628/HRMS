@@ -1,0 +1,104 @@
+<aside class="sidebar" [class.collapsed]="isCollapsed()">
+    <!-- Brand Logo -->
+    <div class="sidebar-brand">
+        <div class="logo-icon">
+            <app-icon name="award" [size]="24"></app-icon>
+        </div>
+        @if (!isCollapsed()) {
+        <div class="brand-text">
+            <h2>Pulse<span>HRMS</span></h2>
+            <span class="version-tag">v19.2</span>
+        </div>
+        }
+    </div>
+
+    <!-- Navigation Section -->
+    <div class="sidebar-menu">
+        @if (!isCollapsed()) {
+            <div class="menu-section-label">CORE WORKSPACE</div>
+        }
+        <nav class="nav-list">
+            @for (item of navItems(); track item.id || item.path) {
+                @if (item.children && item.children.length > 0) {
+                    <!-- Parent Menu with Submenus (e.g. Manage Menu) -->
+                    <div class="nav-group-wrapper" [class.is-open]="isSubmenuOpen(item)">
+                        <button 
+                            type="button" 
+                            class="nav-link nav-link-parent"
+                            [class.sub-active]="isSubmenuActive(item)"
+                            (click)="toggleSubmenu(item, $event)"
+                            [title]="isCollapsed() ? item.title : ''">
+                            <span class="nav-icon">
+                                <app-icon [name]="item.icon" [size]="20"></app-icon>
+                            </span>
+                            @if (!isCollapsed()) {
+                                <span class="nav-text">{{ item.title }}</span>
+                                @if (item.badge && item.badge > 0) {
+                                    <span class="nav-badge">{{ item.badge }}</span>
+                                }
+                                <span class="nav-chevron" [class.rotated]="isSubmenuOpen(item)">
+                                    <app-icon name="chevron-down" [size]="16"></app-icon>
+                                </span>
+                            }
+                        </button>
+
+                        <!-- Child Submenus -->
+                        @if (!isCollapsed() && isSubmenuOpen(item)) {
+                            <div class="sub-nav-list">
+                                @for (child of item.children; track child.id || child.path) {
+                                    <a 
+                                        [routerLink]="child.path" 
+                                        routerLinkActive="active" 
+                                        [routerLinkActiveOptions]="{ exact: child.path === '/manage-menu' }"
+                                        class="sub-nav-link"
+                                        [title]="child.title">
+                                        <span class="sub-nav-icon">
+                                            <app-icon [name]="child.icon || 'chevron-right'" [size]="14"></app-icon>
+                                        </span>
+                                        <span class="sub-nav-text">{{ child.title }}</span>
+                                        @if (child.badge && child.badge > 0) {
+                                            <span class="nav-badge mini">{{ child.badge }}</span>
+                                        }
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
+                } @else {
+                    <!-- Single Direct Nav Link -->
+                    <a 
+                        [routerLink]="item.path" 
+                        routerLinkActive="active" 
+                        class="nav-link"
+                        [title]="isCollapsed() ? item.title : ''">
+                        <span class="nav-icon">
+                            <app-icon [name]="item.icon" [size]="20"></app-icon>
+                        </span>
+                        @if (!isCollapsed()) {
+                            <span class="nav-text">{{ item.title }}</span>
+                            @if (item.badge && item.badge > 0) {
+                                <span class="nav-badge">{{ item.badge }}</span>
+                            }
+                        }
+                    </a>
+                }
+            }
+        </nav>
+    </div>
+
+    <!-- Quick User Card -->
+    <div class="sidebar-footer">
+        <div class="user-mini-card">
+            <div class="avatar avatar-sm">{{ authService.currentUser()?.avatarInitials || 'TU' }}</div>
+            @if (!isCollapsed()) {
+                <div class="user-info">
+                    <span class="user-name">{{ authService.currentUser()?.name || 'Test User' }}</span>
+                    <span class="user-role">{{ authService.currentUser()?.role || 'Admin' }}</span>
+                </div>
+                <button type="button" class="btn-logout-mini" (click)="authService.logout()" title="Logout">
+                    <app-icon name="log-out" [size]="16"></app-icon>
+                </button>
+            }
+        </div>
+    </div>
+</aside>

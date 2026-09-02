@@ -516,8 +516,8 @@ export class DashboardComponent {
     const compName = this.currentCompanyName().toLowerCase();
     const all = this.hrmsData.employees();
     if (!compId && !compName) return all;
-    const filtered = all.filter(e => 
-      (compId && e.companyId === compId) || 
+    const filtered = all.filter(e =>
+      (compId && e.companyId === compId) ||
       (e.companyName && e.companyName.toLowerCase() === compName)
     );
     return filtered.length > 0 ? filtered : all;

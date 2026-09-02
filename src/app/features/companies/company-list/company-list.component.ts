@@ -1,16 +1,14 @@
 import { Component, inject, signal, computed } from '@angular/core';
-import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HrmsDataService } from '../../../core/services/hrms-data.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import { CompanyProfile, CompanyType } from '../../../core/models/company.model';
+import { CompanyProfile, CompanyType, CompanyStatus } from '../../../core/models/company.model';
 import { Department } from '../../../core/models/employee.model';
 import { DepartmentApiService } from '../../../core/services/department-api.service';
 import { CompanyApiService } from '../../../core/services/company-api.service';
-import { MenuApiService } from '../../../core/services/menu-api.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { ModalComponent } from '../../../shared/components/modal/modal.component';
@@ -29,6 +27,9 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
             <h3>Administrator Restricted Area</h3>
             <p>You are logged in as <strong>{{ authService.currentUser()?.name }}</strong> ({{ authService.currentUser()?.role }}). Only <strong>Administrator</strong> accounts have permissions to add, edit, or configure organization legal entities.</p>
           </div>
+          <button type="button" class="btn btn-primary btn-sm" (click)="authService.quickLogin('Super Admin')">
+            Switch to Administrator
+          </button>
         </div>
       }
 
@@ -253,10 +254,15 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
         (close)="isModalOpen.set(false)">
         
         <form [formGroup]="companyForm" (ngSubmit)="saveCompany()">
-          <div class="grid-2">
+          <div class="grid-3">
             <div class="form-group">
               <label>Company Legal Name *</label>
               <input type="text" class="form-control" formControlName="companyName" placeholder="e.g. Pulse Cloud Labs Pvt Ltd" />
+            </div>
+
+            <div class="form-group">
+              <label>Entity Code *</label>
+              <input type="text" class="form-control font-mono" formControlName="code" placeholder="e.g. PULSE-001" />
             </div>
 
             <div class="form-group">
@@ -290,27 +296,6 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
               </select>
             </div>
           </div>
-
-          @if (!isEditing()) {
-            <div class="card registration-admin-box">
-              <h3 class="section-title">Company User Credentials</h3>
-              <p class="text-muted font-xs">Credentials are created first. Super Admin then assigns the role and permissions.</p>
-              <div class="grid-3">
-                <div class="form-group">
-                  <label>Admin Name *</label>
-                  <input type="text" class="form-control" formControlName="adminName" placeholder="Company administrator" />
-                </div>
-                <div class="form-group">
-                  <label>Admin Email *</label>
-                  <input type="email" class="form-control" formControlName="adminEmail" placeholder="admin@company.com" />
-                </div>
-                <div class="form-group">
-                  <label>Initial Password *</label>
-                  <input type="password" class="form-control" formControlName="adminPassword" placeholder="Minimum 6 characters" />
-                </div>
-              </div>
-            </div>
-          }
 
           <div class="grid-2">
             <div class="form-group">
@@ -391,12 +376,26 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
               <span>Set as Default Primary Organization for Payroll & Invoicing</span>
             </label>
           </div>
+
+          @if (!isEditing()) {
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Admin Login Email *</label>
+                <input type="email" class="form-control" formControlName="adminEmail" placeholder="admin@company.com" />
+              </div>
+
+              <div class="form-group">
+                <label>Admin Login Password *</label>
+                <input type="password" class="form-control" formControlName="adminPassword" placeholder="Minimum 8 characters" />
+              </div>
+            </div>
+          }
         </form>
 
         <div modal-footer>
           <button type="button" class="btn btn-secondary" (click)="isModalOpen.set(false)">Cancel</button>
-          <button type="button" class="btn btn-primary" (click)="saveCompany()" [disabled]="companyForm.invalid || isSaving()">
-            {{ isSaving() ? 'Processing...' : (isEditing() ? 'Update Entity' : 'Register Company') }}
+          <button type="button" class="btn btn-primary" (click)="saveCompany()" [disabled]="companyForm.invalid">
+            {{ isEditing() ? 'Update Entity' : 'Register Company' }}
           </button>
         </div>
       </app-modal>
@@ -828,7 +827,6 @@ export class CompanyListComponent {
   readonly authService = inject(AuthService);
   private readonly deptApi = inject(DepartmentApiService);
   private readonly companyApi = inject(CompanyApiService);
-  private readonly menuApi = inject(MenuApiService);
   private readonly toast = inject(NotificationService);
   private readonly fb = inject(FormBuilder);
 
@@ -837,14 +835,13 @@ export class CompanyListComponent {
 
   readonly isAdmin = computed(() => {
     const r = this.authService.currentUser()?.role;
-    return r === 'Super Admin';
+    return r === 'Admin' || r === 'Super Admin';
   });
 
   readonly searchQuery = signal<string>('');
   readonly selectedType = signal<string>('ALL');
 
   readonly isModalOpen = signal<boolean>(false);
-  readonly isSaving = signal<boolean>(false);
   readonly selectedCompanyToEdit = signal<CompanyProfile | null>(null);
 
   // Department Hub Modal signals
@@ -898,6 +895,7 @@ export class CompanyListComponent {
   private initForms(): void {
     this.companyForm = this.fb.group({
       companyName: ['', Validators.required],
+      code: ['', Validators.required],
       tagline: [''],
       type: ['Regional Branch', Validators.required],
       industry: ['Enterprise Software & Cloud SaaS'],
@@ -915,8 +913,9 @@ export class CompanyListComponent {
       currency: ['INR (₹)', Validators.required],
       timeZone: ['Asia/Kolkata (IST +5:30)', Validators.required],
       brandColor: ['#6366f1'],
-      isDefault: [false]
-      ,adminName: [''], adminEmail: [''], adminPassword: ['']
+      isDefault: [false],
+      adminEmail: [''],
+      adminPassword: ['']
     });
 
     this.deptForm = this.fb.group({
@@ -954,19 +953,11 @@ export class CompanyListComponent {
       isDefault: false
     });
     this.isModalOpen.set(true);
-    this.companyForm.get('adminName')?.setValidators([Validators.required]);
-    this.companyForm.get('adminEmail')?.setValidators([Validators.required, Validators.email]);
-    this.companyForm.get('adminPassword')?.setValidators([Validators.required, Validators.minLength(6)]);
-    this.companyForm.updateValueAndValidity();
   }
 
   openEditModal(comp: CompanyProfile): void {
     this.selectedCompanyToEdit.set(comp);
     this.companyForm.patchValue(comp);
-    this.companyForm.get('adminName')?.clearValidators();
-    this.companyForm.get('adminEmail')?.clearValidators();
-    this.companyForm.get('adminPassword')?.clearValidators();
-    this.companyForm.updateValueAndValidity();
     this.isModalOpen.set(true);
   }
 
@@ -1032,70 +1023,51 @@ export class CompanyListComponent {
   }
 
   saveCompany(): void {
-    if (this.companyForm.invalid || this.isSaving()) return;
+    if (this.companyForm.invalid) return;
     const formVal = this.companyForm.value;
-    this.isSaving.set(true);
 
     if (this.isEditing() && this.selectedCompanyToEdit()) {
       this.hrmsData.updateCompany(this.selectedCompanyToEdit()!.id, formVal);
-      const updatedCompany = { ...this.selectedCompanyToEdit()!, ...formVal };
-      this.companyApi.updateCompany(updatedCompany).subscribe({
-        next: () => {
-          this.toast.success('Company Updated', `${formVal.companyName} profile updated.`);
-          this.isModalOpen.set(false);
-          this.isSaving.set(false);
-        },
-        error: error => {
-          this.isSaving.set(false);
-          this.toast.error('Company Update Failed', error?.error?.message || 'Could not save company to backend.');
-        }
-      });
+      this.toast.success('Company Updated', `${formVal.companyName} profile updated.`);
     } else {
-      const added = this.hrmsData.addCompany(formVal);
-      this.companyApi.registerCompany(added).subscribe({
+      if (!formVal.adminEmail || !formVal.adminPassword || formVal.adminPassword.length < 8) {
+        this.toast.error('Admin Credentials Required', 'Enter a valid admin email and a password with at least 8 characters.');
+        return;
+      }
+      this.companyApi.createCompany({
+        ...formVal,
+        adminName: `${formVal.companyName} Admin`,
+        adminEmail: formVal.adminEmail,
+        adminPassword: formVal.adminPassword
+      }).subscribe({
         next: company => {
-          this.authService.registerCredentials({
-            name: formVal.adminName,
+          this.companyApi.createCompanyAdmin({
+            name: `${company.companyName} Admin`,
             email: formVal.adminEmail,
             password: formVal.adminPassword,
-            companyId: company.id,
-            companyName: company.companyName
+            role: 'Company Admin',
+            companyId: company.id
           }).subscribe({
-            next: credentialsResponse => {
-              const userId = credentialsResponse.data.id;
-              this.authService.assignRoles(userId, ['Company Admin']).subscribe({
-                next: () => {
-                  const companyAdminMenus = ['DASHBOARD', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'PAYROLL', 'RECRUITMENT', 'PERFORMANCE', 'SETTINGS'];
-                  forkJoin(companyAdminMenus.map(featureCode => this.menuApi.assignMenu(userId, featureCode))).subscribe({
-                    next: () => {
-                      this.toast.success('Company Registered', `${company.companyName} credentials, role and permissions assigned.`);
-                      this.isModalOpen.set(false);
-                      this.isSaving.set(false);
-                    },
-                    error: () => {
-                      this.isSaving.set(false);
-                      this.toast.error('Permission Assignment Failed', 'Credentials and role were created, but menu permissions could not be assigned.');
-                    }
-                  });
-                },
-                error: error => {
-                  this.isSaving.set(false);
-                  this.toast.error('Role Assignment Failed', error?.error?.message || 'Credentials created but role assignment failed.');
-                }
-              });
+            next: () => {
+              this.hrmsData.setCompanies([company, ...this.companies()]);
+              this.toast.success('Company Registered', `${company.companyName} (${company.code}) and admin credentials created successfully.`);
+              this.isModalOpen.set(false);
             },
             error: error => {
-              this.isSaving.set(false);
-              this.toast.error('Admin Account Failed', error?.error?.message || 'Company was created but admin account could not be created.');
+              console.error('Company admin credential creation failed:', error);
+              this.toast.error('Credentials Not Created', `Company ${company.companyName} was saved, but admin credentials were not created.`);
             }
           });
         },
         error: error => {
-          this.isSaving.set(false);
-          this.toast.error('Company Registration Failed', error?.error?.message || 'Could not register company in backend.');
+          console.error('Company creation failed:', error);
+          this.toast.error('Company Registration Failed', error?.error?.message || 'Company and admin credentials were not saved.');
         }
       });
+      return;
     }
+
+    this.isModalOpen.set(false);
   }
 
   makeDefault(comp: CompanyProfile): void {
